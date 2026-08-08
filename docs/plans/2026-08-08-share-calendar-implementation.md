@@ -690,8 +690,10 @@ create table if not exists public.profiles (
 
 create table if not exists public.groups (
   id          uuid primary key default gen_random_uuid(),
-  name        text not null,
-  invite_code text not null unique default encode(gen_random_bytes(6), 'hex'),
+  name        text not null check (length(name) between 1 and 50),
+  -- 12자리 hex. pgcrypto 없이 내장 gen_random_uuid()만으로 만든다.
+  invite_code text not null unique
+              default substr(replace(gen_random_uuid()::text, '-', ''), 1, 12),
   created_by  uuid not null references auth.users on delete cascade,
   created_at  timestamptz not null default now()
 );
