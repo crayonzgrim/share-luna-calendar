@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-08-08T08:29:43.543Z",
+  "lastUpdated": "2026-08-08T08:30:37.165Z",
   "activeFeatures": [
     "lunar-check",
     "share-calendar"
@@ -29,9 +29,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-08-08T08:25:34.692Z",
-        "lastUpdated": "2026-08-08T08:29:43.543Z"
+        "lastUpdated": "2026-08-08T08:30:37.165Z"
       },
-      "lastFile": "/Volumes/SSD/crayonzgrim-dev/project/share-calendar/src/lib/recurrence.ts"
+      "lastFile": "/Volumes/SSD/crayonzgrim-dev/project/share-calendar/src/lib/calendar.ts"
     }
   },
   "pipeline": {
@@ -42,7 +42,7 @@
   "session": {
     "startedAt": "2026-08-08T07:23:15.956Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-08-08T08:29:43.543Z"
+    "lastActivity": "2026-08-08T08:30:37.165Z"
   },
   "history": [
     {
@@ -101,6 +101,18 @@
     },
     {
       "timestamp": "2026-08-08T08:29:43.543Z",
+      "feature": "share-calendar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-08T08:30:17.820Z",
+      "feature": "share-calendar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-08T08:30:37.165Z",
       "feature": "share-calendar",
       "phase": "do",
       "action": "updated"
