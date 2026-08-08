@@ -31,7 +31,17 @@
 
 이 계획의 Task 6부터는 실제 Supabase 프로젝트가 필요하다. Task 1~5는 없어도 진행 가능하니, 먼저 코딩을 시작하고 병행해도 된다.
 
-1. **Supabase 프로젝트 생성** — https://supabase.com 무료 가입 → New Project → 리전은 `Northeast Asia (Seoul)` → DB 비밀번호 저장. 생성 후 Settings → API에서 `Project URL`과 `anon public` 키를 복사해둔다.
+1. **Supabase 프로젝트 생성** — https://supabase.com 무료 가입 → New Project → 리전은 `Northeast Asia (Seoul)` → DB 비밀번호 저장.
+
+   생성 화면의 Security 항목은 아래대로 맞춘다:
+
+   | 옵션 | 설정 | 이유 |
+   |------|------|------|
+   | Enable Data API | ✅ 켬 | supabase-js가 PostgREST로 붙는 구조라 끄면 앱이 동작하지 않는다 |
+   | Automatically expose new tables | ⬜ **끔** | 나중에 추가하는 테이블이 자동으로 API에 열리지 않게 한다. Task 6의 GRANT가 필요한 테이블만 명시적으로 연다 |
+   | Enable automatic RLS | ✅ 켬 | 새 테이블에 RLS를 자동으로 켜주는 안전망. 비용 없음 |
+
+   생성 후 Settings → API에서 `Project URL`과 `anon public` 키를 복사해둔다.
 2. **카카오 개발자 앱 등록** — https://developers.kakao.com → 애플리케이션 추가(무료) → 앱 키의 `REST API 키` 복사 → 제품 설정 → 카카오 로그인 → 활성화 ON → Redirect URI에 `https://<프로젝트ref>.supabase.co/auth/v1/callback` 등록 → 보안 탭에서 `Client Secret` 생성 후 복사 → 동의항목에서 `닉네임`, `프로필 사진` 필수 동의로 설정.
 3. **Supabase에 카카오 연결** — Supabase Dashboard → Authentication → Providers → Kakao → 활성화 후 REST API 키를 `Client ID`, Client Secret을 `Client Secret`에 붙여넣기.
 
@@ -908,6 +918,30 @@ drop policy if exists "author deletes entries" on public.entries;
 create policy "author deletes entries" on public.entries
   for delete to authenticated
   using (author_id = auth.uid());
+
+-- ---------- Data API 권한 (GRANT) ----------
+-- 프로젝트 생성 시 "Automatically expose new tables"를 껐다면 이 GRANT가 없으면
+-- SQL 실행은 성공해도 앱에서 "permission denied for table ..."이 난다.
+-- 켜둔 상태라면 이미 부여된 권한이라 다시 실행해도 무해하다.
+--
+-- 여기서 주는 건 "이 테이블을 Data API로 만질 수 있다"까지고,
+-- 어떤 행을 볼 수 있는지는 위의 RLS 정책이 결정한다. 두 층은 별개다.
+-- anon에는 아무 테이블 권한도 주지 않는다 — 로그인 없이 접근할 이유가 없다.
+
+grant usage on schema public to anon, authenticated;
+
+grant select, update                  on public.profiles      to authenticated;
+grant select, insert, update, delete  on public.groups        to authenticated;
+grant select, delete                  on public.group_members to authenticated;
+grant select, insert, update, delete  on public.entries       to authenticated;
+
+-- group_members INSERT 권한은 일부러 주지 않는다.
+-- 가입은 join_group_by_code(SECURITY DEFINER)와 그룹 생성 트리거로만 이뤄져야
+-- 초대 코드를 모르는 사람이 임의의 그룹에 자기를 밀어넣을 수 없다.
+
+grant execute on function public.join_group_by_code(text) to authenticated;
+grant execute on function public.is_group_member(uuid)    to authenticated;
+grant execute on function public.shares_group_with(uuid)  to authenticated;
 ```
 
 **Step 2: Supabase에서 실행**
@@ -915,16 +949,26 @@ create policy "author deletes entries" on public.entries
 Supabase Dashboard → SQL Editor → New query → 위 파일 내용 전체 붙여넣기 → Run.
 Expected: `Success. No rows returned`
 
-**Step 3: RLS가 실제로 막는지 확인**
+**Step 3: 비로그인 접근이 막히는지 확인**
 
-SQL Editor에서 아래를 실행한다. 익명(anon) 역할로는 아무것도 안 보여야 한다.
+SQL Editor에서 아래를 실행한다.
 
 ```sql
 set local role anon;
 select count(*) from public.groups;
 ```
 
-Expected: `0` (에러가 아니라 0행 — RLS가 걸러낸 것)
+Expected: `permission denied for table groups` 에러.
+GRANT를 anon에게 주지 않았으므로 RLS 이전 단계에서 막힌다.
+
+로그인 사용자에게 RLS가 걸리는지도 확인한다. 아직 아무 그룹에도 속하지 않은 상태라면:
+
+```sql
+set local role authenticated;
+select count(*) from public.groups;
+```
+
+Expected: `0` (에러가 아니라 0행 — 테이블엔 접근되지만 RLS가 행을 걸러낸 것)
 
 **Step 4: `group_members` 정책 재귀가 없는지 확인**
 
@@ -2327,12 +2371,14 @@ jobs:
     steps:
       - name: Ping Supabase REST
         run: |
-          code=$(curl -s -o /dev/null -w "%{http_code}" \
-            "${{ secrets.SUPABASE_URL }}/rest/v1/groups?select=id&limit=1" \
+          code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/" \
             -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}")
           echo "HTTP $code"
-          # RLS 때문에 빈 배열이 오는 게 정상. 200이면 살아있는 것.
-          test "$code" = "200"
+          # 목적은 "Data API가 응답하는가"를 확인해 일시정지 타이머를 리셋하는 것이다.
+          # anon에는 테이블 권한을 주지 않았으므로 401/403도 정상 응답이다 — 서버가
+          # 살아있다는 증거다. 일시정지된 프로젝트는 5xx이거나 아예 응답이 없다.
+          test -n "$code" && test "$code" -lt 500
 ```
 
 **Step 3: GitHub Secrets 등록**
@@ -2344,7 +2390,7 @@ GitHub 레포 → Settings → Secrets and variables → Actions → New reposit
 **Step 4: 워크플로우 수동 실행으로 검증**
 
 GitHub → Actions → `keep-supabase-alive` → Run workflow.
-Expected: 초록 체크, 로그에 `HTTP 200`
+Expected: 초록 체크. 로그의 `HTTP xxx`가 200이든 401이든 5xx만 아니면 정상이다.
 
 **Step 5: 커밋**
 
@@ -2456,5 +2502,6 @@ git push
 - [ ] 배포본에서 서로 다른 카카오 계정 2개가 같은 그룹의 일정을 주고받는다
 - [ ] 음력 매년 항목이 해가 바뀌면 다른 양력 날짜에 찍힌다
 - [ ] 모바일 375px과 데스크톱 1280px 모두 레이아웃이 깨지지 않는다
-- [ ] 로그인하지 않은 상태에서 REST를 직접 호출하면 빈 결과가 온다 (RLS 동작 확인)
+- [ ] 로그인하지 않은 상태로 REST를 직접 호출하면 권한 거부가 온다 (anon 미노출 확인)
+- [ ] 그룹 A 멤버가 그룹 B의 일정을 조회할 수 없다 (RLS 동작 확인)
 - [ ] keep-alive 워크플로우가 수동 실행에서 HTTP 200을 받는다
