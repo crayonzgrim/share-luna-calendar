@@ -1,9 +1,39 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-08-08T07:23:15.956Z",
-  "activeFeatures": [],
-  "primaryFeature": null,
-  "features": {},
+  "lastUpdated": "2026-08-08T08:26:03.443Z",
+  "activeFeatures": [
+    "lunar-check",
+    "share-calendar"
+  ],
+  "primaryFeature": "lunar-check",
+  "features": {
+    "lunar-check": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-08-08T08:03:01.917Z",
+        "lastUpdated": "2026-08-08T08:03:24.561Z"
+      },
+      "lastFile": "/private/tmp/claude-501/-Volumes-SSD-crayonzgrim-dev-project-share-calendar/32e8a1bc-4165-4297-9745-e1d5046a4b0f/scratchpad/lunar-check/check2.js"
+    },
+    "share-calendar": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-08-08T08:25:34.692Z",
+        "lastUpdated": "2026-08-08T08:26:03.443Z"
+      },
+      "lastFile": "/Volumes/SSD/crayonzgrim-dev/project/share-calendar/src/App.tsx"
+    }
+  },
   "pipeline": {
     "currentPhase": 1,
     "level": "Dynamic",
@@ -12,7 +42,38 @@
   "session": {
     "startedAt": "2026-08-08T07:23:15.956Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-08-08T07:23:15.956Z"
+    "lastActivity": "2026-08-08T08:26:03.443Z"
   },
-  "history": []
+  "history": [
+    {
+      "timestamp": "2026-08-08T08:03:01.917Z",
+      "feature": "lunar-check",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-08T08:03:24.561Z",
+      "feature": "lunar-check",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-08T08:25:34.692Z",
+      "feature": "share-calendar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-08T08:25:42.412Z",
+      "feature": "share-calendar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-08T08:26:03.443Z",
+      "feature": "share-calendar",
+      "phase": "do",
+      "action": "updated"
+    }
+  ]
 }
