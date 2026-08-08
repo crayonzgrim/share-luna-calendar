@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-08-08T08:26:03.443Z",
+  "lastUpdated": "2026-08-08T08:28:15.526Z",
   "activeFeatures": [
     "lunar-check",
     "share-calendar"
@@ -29,9 +29,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-08-08T08:25:34.692Z",
-        "lastUpdated": "2026-08-08T08:26:03.443Z"
+        "lastUpdated": "2026-08-08T08:28:15.526Z"
       },
-      "lastFile": "/Volumes/SSD/crayonzgrim-dev/project/share-calendar/src/App.tsx"
+      "lastFile": "/Volumes/SSD/crayonzgrim-dev/project/share-calendar/src/lib/lunar.ts"
     }
   },
   "pipeline": {
@@ -42,7 +42,7 @@
   "session": {
     "startedAt": "2026-08-08T07:23:15.956Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-08-08T08:26:03.443Z"
+    "lastActivity": "2026-08-08T08:28:15.526Z"
   },
   "history": [
     {
@@ -71,6 +71,24 @@
     },
     {
       "timestamp": "2026-08-08T08:26:03.443Z",
+      "feature": "share-calendar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-08T08:27:11.755Z",
+      "feature": "share-calendar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-08T08:27:31.163Z",
+      "feature": "share-calendar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-08T08:28:15.526Z",
       "feature": "share-calendar",
       "phase": "do",
       "action": "updated"

@@ -297,7 +297,8 @@ export function solarToLunar(date: Date): LunarDate | null {
   const cal = new KoreanLunarCalendar()
   if (!cal.setSolarDate(date.getFullYear(), date.getMonth() + 1, date.getDate())) return null
   const l = cal.getLunarCalendar()
-  return { year: l.year, month: l.month, day: l.day, isLeap: l.intercalation }
+  // 라이브러리 타입상 intercalation은 optional이다. 없으면 평달을 뜻한다.
+  return { year: l.year, month: l.month, day: l.day, isLeap: l.intercalation ?? false }
 }
 ```
 
