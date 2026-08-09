@@ -204,10 +204,16 @@ create policy "update own profile" on public.profiles
   using (id = auth.uid()) with check (id = auth.uid());
 
 -- groups: 멤버만 조회, 로그인 사용자는 생성 가능, owner만 수정/삭제
+--
+-- created_by 조건이 함께 있어야 하는 이유:
+-- add_creator_as_owner는 AFTER INSERT 트리거라 문이 끝날 때 실행되는데,
+-- .insert().select()가 쓰는 RETURNING은 그 전에 평가된다. 즉 그룹을 만든
+-- 직후에는 아직 멤버가 아니어서, is_group_member만으로는 자기가 방금 만든
+-- 그룹을 되돌려받지 못하고 403이 난다.
 drop policy if exists "members read groups" on public.groups;
 create policy "members read groups" on public.groups
   for select to authenticated
-  using (public.is_group_member(id));
+  using (public.is_group_member(id) or created_by = auth.uid());
 
 drop policy if exists "authenticated create groups" on public.groups;
 create policy "authenticated create groups" on public.groups
