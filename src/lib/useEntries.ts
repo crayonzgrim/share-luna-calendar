@@ -1,0 +1,42 @@
+import { useCallback, useEffect, useState } from 'react'
+import { createEntry, deleteEntry, fetchEntries } from './api'
+import type { NewEntry } from './api'
+import type { EntryWithAuthor } from './types'
+
+export function useEntries(groupId: string | null) {
+  const [entries, setEntries] = useState<EntryWithAuthor[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const reload = useCallback(async () => {
+    if (!groupId) {
+      setEntries([])
+      return
+    }
+    setLoading(true)
+    try {
+      setEntries(await fetchEntries(groupId))
+      setError(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '일정을 불러오지 못했어요')
+    } finally {
+      setLoading(false)
+    }
+  }, [groupId])
+
+  useEffect(() => {
+    void reload()
+  }, [reload])
+
+  const add = useCallback(async (entry: NewEntry) => {
+    const created = await createEntry(entry)
+    setEntries((prev) => [...prev, created])
+  }, [])
+
+  const remove = useCallback(async (id: string) => {
+    await deleteEntry(id)
+    setEntries((prev) => prev.filter((e) => e.id !== id))
+  }, [])
+
+  return { entries, loading, error, add, remove, reload }
+}

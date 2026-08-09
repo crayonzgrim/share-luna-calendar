@@ -26,13 +26,17 @@ create table if not exists public.groups (
   -- 12자리 hex. pgcrypto 없이 내장 gen_random_uuid()만으로 만든다.
   invite_code text not null unique
               default substr(replace(gen_random_uuid()::text, '-', ''), 1, 12),
-  created_by  uuid not null references auth.users on delete cascade,
+  -- auth.users가 아니라 profiles를 참조한다.
+  -- PostgREST는 외래키를 따라서만 조인하므로, 작성자 이름을 함께 가져오려면
+  -- 이 관계가 profiles를 직접 가리켜야 한다. (profiles.id가 auth.users를
+  -- 참조하므로 사용자 삭제 시 연쇄 삭제는 그대로 동작한다.)
+  created_by  uuid not null references public.profiles(id) on delete cascade,
   created_at  timestamptz not null default now()
 );
 
 create table if not exists public.group_members (
   group_id  uuid not null references public.groups on delete cascade,
-  user_id   uuid not null references auth.users on delete cascade,
+  user_id   uuid not null references public.profiles(id) on delete cascade,
   role      text not null default 'member' check (role in ('owner', 'member')),
   joined_at timestamptz not null default now(),
   primary key (group_id, user_id)
@@ -41,7 +45,7 @@ create table if not exists public.group_members (
 create table if not exists public.entries (
   id            uuid primary key default gen_random_uuid(),
   group_id      uuid not null references public.groups on delete cascade,
-  author_id     uuid not null references auth.users on delete cascade,
+  author_id     uuid not null references public.profiles(id) on delete cascade,
   title         text not null check (length(title) between 1 and 200),
   memo          text check (length(memo) <= 2000),
   date_type     text not null default 'solar' check (date_type in ('solar', 'lunar')),
