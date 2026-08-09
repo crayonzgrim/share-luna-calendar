@@ -227,6 +227,23 @@
   cursor: pointer;
 }
 
+/* 개발용 임시 로그인 — 카카오 비즈 앱 전환 후 제거 */
+.dev-login {
+  margin-top: 2rem;
+  width: 100%;
+  max-width: 320px;
+  text-align: left;
+  border-top: 1px solid var(--line);
+  padding-top: 1rem;
+}
+.dev-login summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  margin-bottom: 0.75rem;
+}
+.dev-login .entry-form { margin-bottom: 0.5rem; }
+
 /* ---------- 태블릿 이상 ---------- */
 
 @media (min-width: 768px) {
