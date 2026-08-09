@@ -36,8 +36,12 @@ export default function CalendarPage() {
   if (groups.length === 0) {
     return (
       <div className="center-msg">
-        <p>아직 속한 그룹이 없어요.</p>
-        <Link to="/groups" className="link-btn">그룹 만들기</Link>
+        <span className="eyebrow">시작하기</span>
+        <p>아직 속한 그룹이 없어요.<br />달력을 함께 볼 그룹을 만들어 보세요.</p>
+        <Link to="/groups" className="cta">
+          그룹 만들기
+          <span className="cta__icon" aria-hidden="true">↗</span>
+        </Link>
         {groupsError && <p className="error">{groupsError}</p>}
       </div>
     )
@@ -45,16 +49,22 @@ export default function CalendarPage() {
 
   return (
     <div className="app">
-      <header className="topbar">
+      <header className="topbar rise">
         <GroupSwitcher groups={groups} selectedId={selectedId} onSelect={select} />
-        <button type="button" className="link-btn" onClick={() => void signOut()}>로그아웃</button>
+        <button type="button" className="pill" onClick={() => void signOut()}>
+          로그아웃
+        </button>
       </header>
 
-      <nav className="month-nav">
-        <button type="button" onClick={() => move(-1)} aria-label="이전 달">‹</button>
-        <h2>{year}.{String(month).padStart(2, '0')}</h2>
-        <button type="button" onClick={() => move(1)} aria-label="다음 달">›</button>
-        <button type="button" className="today-btn" onClick={goToday}>오늘</button>
+      <nav className="month-nav rise rise-1">
+        <span className="month-nav__label">
+          <span className="month-nav__year">{year}</span>
+          <span className="month-nav__month">{month}</span>
+          <span className="month-nav__suffix">월</span>
+        </span>
+        <button type="button" className="nav-btn" onClick={() => move(-1)} aria-label="이전 달">‹</button>
+        <button type="button" className="nav-btn" onClick={goToday} aria-label="오늘로">·</button>
+        <button type="button" className="nav-btn" onClick={() => move(1)} aria-label="다음 달">›</button>
       </nav>
 
       {(groupsError ?? entriesError) && <p className="error">{groupsError ?? entriesError}</p>}

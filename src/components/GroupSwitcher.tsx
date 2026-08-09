@@ -19,7 +19,7 @@ export default function GroupSwitcher({ groups, selectedId, onSelect }: Props) {
           <option key={g.id} value={g.id}>{g.name}</option>
         ))}
       </select>
-      <Link to="/groups" className="link-btn">그룹 관리</Link>
+      <Link to="/groups" className="pill">그룹</Link>
     </div>
   )
 }

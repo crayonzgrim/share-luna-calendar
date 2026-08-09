@@ -4,10 +4,19 @@ import { signInWithEmail, signInWithKakao, signUpWithEmail } from '../lib/useAut
 export default function Login() {
   return (
     <main className="login">
-      <h1>우리 달력</h1>
-      <p>가족·친구와 함께 쓰는 달력이에요.</p>
-      <button type="button" className="kakao-btn" onClick={() => void signInWithKakao()}>
+      <span className="eyebrow rise">가족·친구와 함께</span>
+      <h1 className="rise rise-1">우리 달력</h1>
+      <p className="login__sub rise rise-2">
+        음력 생신도, 제사도 매년 알아서 자리를 찾아갑니다.
+      </p>
+
+      <button
+        type="button"
+        className="kakao-btn rise rise-3"
+        onClick={() => void signInWithKakao()}
+      >
         카카오로 시작하기
+        <span className="cta__icon" aria-hidden="true">↗</span>
       </button>
 
       <DevEmailLogin />
@@ -50,7 +59,7 @@ function DevEmailLogin() {
   }
 
   return (
-    <details className="dev-login">
+    <details className="dev-login rise rise-4">
       <summary>개발용 임시 로그인</summary>
 
       <form className="entry-form" onSubmit={(e) => void submit(e)}>

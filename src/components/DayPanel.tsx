@@ -73,99 +73,105 @@ export default function DayPanel({ date, groupId, userId, entries, onAdd, onDele
   }
 
   return (
-    <section className="day-panel">
-      <h3>
-        {date.getMonth() + 1}월 {date.getDate()}일
-        {lunar && <span className="lunar-label">음력 {lunar.month}.{lunar.day}</span>}
-      </h3>
+    <div className="shell rise rise-3">
+      <section className="core day-panel">
+        <header className="day-panel__head">
+          <span className="day-panel__date">
+            {date.getMonth() + 1}월 {date.getDate()}일
+          </span>
+          {lunar && <span className="lunar-label">음력 {lunar.month}.{lunar.day}</span>}
+        </header>
 
-      <ul className="entry-list">
-        {dayEntries.length === 0 && <li className="empty">아직 계획이 없어요.</li>}
-        {dayEntries.map((e) => (
-          <li key={e.id}>
-            <div>
-              <strong>{e.title}</strong>
-              {e.date_type === 'lunar' && <span className="badge">음력</span>}
-              {e.repeat !== 'none' && (
-                <span className="badge">{e.repeat === 'yearly' ? '매년' : '매월'}</span>
+        <ul className="entry-list">
+          {dayEntries.length === 0 && <li className="empty">아직 계획이 없어요</li>}
+          {dayEntries.map((e, i) => (
+            <li key={e.id} style={{ animationDelay: `${i * 0.05}s` }}>
+              <div>
+                <span className="entry-title">{e.title}</span>
+                {e.date_type === 'lunar' && <span className="badge badge--lunar">음력</span>}
+                {e.repeat !== 'none' && (
+                  <span className="badge">{e.repeat === 'yearly' ? '매년' : '매월'}</span>
+                )}
+                {e.memo && <p className="memo">{e.memo}</p>}
+                <small className="author">{e.author?.name ?? '알 수 없음'}</small>
+              </div>
+              {e.author_id === userId && (
+                <button type="button" className="del-btn" onClick={() => void onDelete(e.id)}>
+                  삭제
+                </button>
               )}
-              {e.memo && <p className="memo">{e.memo}</p>}
-              <small className="author">{e.author?.name ?? '알 수 없음'}</small>
+            </li>
+          ))}
+        </ul>
+
+        <form className="entry-form" onSubmit={(e) => void submit(e)}>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="무엇을 할 예정인가요?"
+            maxLength={200}
+            required
+          />
+          <textarea
+            value={memo}
+            onChange={(e) => setMemo(e.target.value)}
+            placeholder="메모 (선택)"
+            rows={2}
+            maxLength={2000}
+          />
+
+          <div className="form-row">
+            <div className="segment">
+              <label>
+                <input
+                  type="radio"
+                  name="date-type"
+                  checked={dateType === 'solar'}
+                  onChange={() => changeDateType('solar')}
+                />
+                양력
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="date-type"
+                  checked={dateType === 'lunar'}
+                  onChange={() => changeDateType('lunar')}
+                />
+                음력
+              </label>
             </div>
-            {e.author_id === userId && (
-              <button type="button" className="del-btn" onClick={() => void onDelete(e.id)}>
-                삭제
-              </button>
-            )}
-          </li>
-        ))}
-      </ul>
 
-      <form className="entry-form" onSubmit={(e) => void submit(e)}>
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="무엇을 할 예정인가요?"
-          maxLength={200}
-          required
-        />
-        <textarea
-          value={memo}
-          onChange={(e) => setMemo(e.target.value)}
-          placeholder="메모 (선택)"
-          rows={2}
-          maxLength={2000}
-        />
+            <select
+              value={repeat}
+              onChange={(e) => setRepeat(e.target.value as RepeatRule)}
+              aria-label="반복"
+            >
+              <option value="none">반복 없음</option>
+              <option value="yearly">매년</option>
+              {dateType === 'solar' && <option value="monthly">매월</option>}
+            </select>
+          </div>
 
-        <div className="form-row">
-          <label>
-            <input
-              type="radio"
-              name="date-type"
-              checked={dateType === 'solar'}
-              onChange={() => changeDateType('solar')}
-            />
-            양력
-          </label>
-          <label>
-            <input
-              type="radio"
-              name="date-type"
-              checked={dateType === 'lunar'}
-              onChange={() => changeDateType('lunar')}
-            />
-            음력
-          </label>
+          {dateType === 'lunar' && repeat === 'yearly' && lunar && (
+            <p className="hint">
+              매년 음력 {lunar.month}월 {lunar.day}일에 표시돼요.
+              {' '}내년엔 {nextYearLabel(lunar.month, lunar.day, date.getFullYear() + 1)}.
+            </p>
+          )}
 
-          <select
-            value={repeat}
-            onChange={(e) => setRepeat(e.target.value as RepeatRule)}
-            aria-label="반복"
-          >
-            <option value="none">반복 없음</option>
-            <option value="yearly">매년</option>
-            {dateType === 'solar' && <option value="monthly">매월</option>}
-          </select>
-        </div>
+          {error && <p className="error">{error}</p>}
 
-        {dateType === 'lunar' && repeat === 'yearly' && lunar && (
-          <p className="hint">
-            매년 음력 {lunar.month}월 {lunar.day}일에 표시돼요
-            {' '}(내년엔 {nextYearLabel(lunar.month, lunar.day, date.getFullYear() + 1)}).
-          </p>
-        )}
-
-        {error && <p className="error">{error}</p>}
-
-        <button type="submit" disabled={saving || !title.trim()}>
-          {saving ? '저장 중…' : '추가'}
-        </button>
-      </form>
-    </section>
+          <button type="submit" disabled={saving || !title.trim()}>
+            {saving ? '저장 중…' : '추가'}
+          </button>
+        </form>
+      </section>
+    </div>
   )
 }
 
 function nextYearLabel(month: number, day: number, year: number): string {
   const d = lunarToSolarClamped(year, month, day)
-  return d ? `양력 ${d.getMonth() + 1}월 ${d.getDate()}일` : '계산 불가'
+  return d ? `양력 ${d.getMonth() + 1}월 ${d.getDate()}일` : '계산할 수 없어요'
 }

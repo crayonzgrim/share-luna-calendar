@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-08-09T08:22:40.385Z",
+  "lastUpdated": "2026-08-09T08:57:49.216Z",
   "activeFeatures": [
     "lunar-check",
     "share-calendar"
@@ -29,9 +29,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-08-08T08:25:34.692Z",
-        "lastUpdated": "2026-08-09T08:22:40.385Z"
+        "lastUpdated": "2026-08-09T08:57:49.216Z"
       },
-      "lastFile": "/Volumes/SSD/crayonzgrim-dev/project/share-calendar/src/pages/Login.tsx"
+      "lastFile": "/Volumes/SSD/crayonzgrim-dev/project/share-calendar/src/components/GroupSwitcher.tsx"
     }
   },
   "pipeline": {
@@ -42,7 +42,7 @@
   "session": {
     "startedAt": "2026-08-08T07:23:15.956Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-08-09T08:22:40.385Z"
+    "lastActivity": "2026-08-09T08:57:49.216Z"
   },
   "history": [
     {
@@ -221,6 +221,42 @@
     },
     {
       "timestamp": "2026-08-09T08:22:40.385Z",
+      "feature": "share-calendar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-09T08:56:11.577Z",
+      "feature": "share-calendar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-09T08:56:40.044Z",
+      "feature": "share-calendar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-09T08:56:59.140Z",
+      "feature": "share-calendar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-09T08:57:19.882Z",
+      "feature": "share-calendar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-09T08:57:39.848Z",
+      "feature": "share-calendar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-09T08:57:49.216Z",
       "feature": "share-calendar",
       "phase": "do",
       "action": "updated"
