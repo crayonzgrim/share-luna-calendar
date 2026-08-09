@@ -99,7 +99,7 @@ entries        id PK, group_id FK, author_id FK,
 - [ ] GitHub 레포 생성, push
 - [ ] Supabase 프로젝트 생성 (무료), 스키마 + RLS 적용
 - [ ] 카카오 개발자 앱 등록 → Supabase Auth에 카카오 프로바이더 + Redirect URI 설정
-- [ ] Vercel 연결, 환경변수 `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` 설정, SPA rewrite
+- [ ] Vercel 연결, 환경변수 `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` 설정, SPA rewrite
 - [ ] `.github/workflows/keep-alive.yml` — 3일마다 REST ping (일시정지 방지)
 
 ## 테스트

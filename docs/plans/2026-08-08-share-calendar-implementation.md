@@ -41,7 +41,8 @@
    | Automatically expose new tables | ⬜ **끔** | 나중에 추가하는 테이블이 자동으로 API에 열리지 않게 한다. Task 6의 GRANT가 필요한 테이블만 명시적으로 연다 |
    | Enable automatic RLS | ✅ 켬 | 새 테이블에 RLS를 자동으로 켜주는 안전망. 비용 없음 |
 
-   생성 후 Settings → API에서 `Project URL`과 `anon public` 키를 복사해둔다.
+   생성 후 Project Settings → API Keys → "Publishable and secret API keys" 탭에서
+   `Project URL`과 publishable 키(`sb_publishable_...`)를 복사해둔다.
 2. **카카오 개발자 앱 등록** — https://developers.kakao.com → 애플리케이션 추가(무료) → 앱 키의 `REST API 키` 복사 → 제품 설정 → 카카오 로그인 → 활성화 ON → Redirect URI에 `https://<프로젝트ref>.supabase.co/auth/v1/callback` 등록 → 보안 탭에서 `Client Secret` 생성 후 복사 → 동의항목에서 `닉네임`, `프로필 사진` 필수 동의로 설정.
 3. **Supabase에 카카오 연결** — Supabase Dashboard → Authentication → Providers → Kakao → 활성화 후 REST API 키를 `Client ID`, Client Secret을 `Client Secret`에 붙여넣기.
 
@@ -1011,14 +1012,17 @@ git commit -m "feat: add Postgres schema, triggers and RLS policies"
 
 ```
 VITE_SUPABASE_URL=https://your-project-ref.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-public-key
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxxxxxxxxxxx
 ```
 
 **Step 3: .env.local 작성 (실제 값)**
 
-Supabase Dashboard → Settings → API에서 복사한 값을 넣는다.
-`anon public` 키는 브라우저에 노출되는 게 정상이다 — 실제 보안은 RLS가 담당한다.
-절대 `service_role` 키를 쓰면 안 된다.
+Supabase Dashboard → Project Settings → API Keys → **"Publishable and secret API keys"** 탭에서
+publishable 키(`sb_publishable_...`)를 복사한다.
+
+구 `anon` 키(`eyJ...`)는 2026년 말 폐기 예정이므로 신규 프로젝트는 publishable 키를 쓴다.
+역할은 동일하다 — 브라우저에 노출되는 게 정상이고 실제 보안은 RLS가 담당한다.
+`sb_secret_...` 키는 RLS를 우회하므로 절대 프론트엔드에 넣으면 안 된다.
 
 **Step 4: 타입 정의**
 
@@ -1067,15 +1071,15 @@ export type EntryWithAuthor = Entry & { author: Pick<Profile, 'name' | 'avatar_u
 import { createClient } from '@supabase/supabase-js'
 
 const url = import.meta.env.VITE_SUPABASE_URL
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
 
-if (!url || !anonKey) {
+if (!url || !publishableKey) {
   throw new Error(
-    'VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY가 없습니다. .env.example을 참고해 .env.local을 만드세요.',
+    'VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY가 없습니다. .env.example을 참고해 .env.local을 만드세요.',
   )
 }
 
-export const supabase = createClient(url, anonKey)
+export const supabase = createClient(url, publishableKey)
 ```
 
 **Step 6: 타입체크 통과 확인**
@@ -2375,7 +2379,7 @@ jobs:
         run: |
           code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 \
             "${{ secrets.SUPABASE_URL }}/rest/v1/" \
-            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}")
+            -H "apikey: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}")
           echo "HTTP $code"
           # 목적은 "Data API가 응답하는가"를 확인해 일시정지 타이머를 리셋하는 것이다.
           # anon에는 테이블 권한을 주지 않았으므로 401/403도 정상 응답이다 — 서버가
@@ -2387,7 +2391,7 @@ jobs:
 
 GitHub 레포 → Settings → Secrets and variables → Actions → New repository secret로 두 개 등록:
 - `SUPABASE_URL` — `https://<ref>.supabase.co`
-- `SUPABASE_ANON_KEY` — anon public 키
+- `SUPABASE_PUBLISHABLE_KEY` — publishable 키 (`sb_publishable_...`)
 
 **Step 4: 워크플로우 수동 실행으로 검증**
 
@@ -2418,7 +2422,7 @@ gh repo create share-calendar --private --source=. --remote=origin --push
 
 1. https://vercel.com 에 GitHub으로 로그인 → Add New Project → `share-calendar` import
 2. Framework Preset이 **Vite**로 자동 인식되는지 확인 (Build Command `pnpm build`, Output `dist`)
-3. Environment Variables에 `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` 추가
+3. Environment Variables에 `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` 추가
 4. Deploy
 
 **Step 3: 배포 후 인증 설정 마무리**
@@ -2451,7 +2455,7 @@ gh repo create share-calendar --private --source=. --remote=origin --push
 
 ```bash
 pnpm install
-cp .env.example .env.local   # Supabase URL과 anon key를 채운다
+cp .env.example .env.local   # Supabase URL과 publishable key를 채운다
 pnpm dev
 ```
 
