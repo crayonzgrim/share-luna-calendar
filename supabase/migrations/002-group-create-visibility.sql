@@ -17,10 +17,20 @@
 -- ============================================================
 
 
--- ---------- 1) 원인 확인 (실제 반영 없이 롤백) ----------
--- 아래 NOTICE 두 줄을 확인한다.
---   A 성공 + B 실패  → RETURNING이 원인 (예상대로)
---   A/B 모두 실패    → 다른 원인. 메시지를 그대로 공유할 것
+-- ---------- 1) 수정 ----------
+-- 역할을 바꾸기 전에 먼저 처리한다. 정책 변경은 테이블 소유자만 할 수 있다.
+
+drop policy if exists "members read groups" on public.groups;
+create policy "members read groups" on public.groups
+  for select to authenticated
+  using (public.is_group_member(id) or created_by = auth.uid());
+
+
+-- ---------- 2) 실제로 고쳐졌는지 확인 ----------
+-- 트랜잭션 안에서 사용자를 흉내내 그룹 생성을 시도하고, 통째로 롤백한다.
+-- 롤백하면 진단용 행도, 역할 변경도 모두 원상복구된다.
+
+begin;
 
 do $$
 declare
@@ -33,7 +43,6 @@ begin
     return;
   end if;
 
-  -- 해당 사용자로 로그인한 것처럼 흉내낸다
   perform set_config('role', 'authenticated', true);
   perform set_config(
     'request.jwt.claims',
@@ -42,33 +51,17 @@ begin
   );
 
   begin
-    insert into public.groups (name, created_by) values ('진단A', uid);
-    raise notice 'A) RETURNING 없는 INSERT : 성공';
+    insert into public.groups (name, created_by) values ('진단', uid) returning id into gid;
+    raise notice '결과: 그룹 생성 성공 — 수정이 적용되었습니다';
   exception when others then
-    raise notice 'A) RETURNING 없는 INSERT : 실패 — %', sqlerrm;
-  end;
-
-  begin
-    insert into public.groups (name, created_by) values ('진단B', uid) returning id into gid;
-    raise notice 'B) RETURNING 있는 INSERT : 성공';
-  exception when others then
-    raise notice 'B) RETURNING 있는 INSERT : 실패 — %', sqlerrm;
+    raise notice '결과: 그룹 생성 실패 — % (%)', sqlerrm, sqlstate;
   end;
 end $$;
 
--- 진단용 행은 남기지 않는다
-delete from public.groups where name in ('진단A', '진단B');
+rollback;
 
 
--- ---------- 2) 수정 ----------
-
-drop policy if exists "members read groups" on public.groups;
-create policy "members read groups" on public.groups
-  for select to authenticated
-  using (public.is_group_member(id) or created_by = auth.uid());
-
-
--- ---------- 3) 확인 ----------
+-- ---------- 3) 정책 확인 ----------
 select policyname, cmd, qual
 from pg_policies
 where schemaname = 'public' and tablename = 'groups' and cmd = 'SELECT';
