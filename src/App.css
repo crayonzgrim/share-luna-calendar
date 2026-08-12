@@ -510,29 +510,6 @@
 .kakao-btn .cta__icon { background: rgba(0, 0, 0, 0.09); }
 .kakao-btn:hover .cta__icon { transform: translate(2px, -1px) scale(1.06); }
 
-/* 개발용 임시 로그인 — 카카오 비즈 앱 전환 후 제거 */
-.dev-login {
-  width: 100%;
-  max-width: 20rem;
-  margin-top: 2.5rem;
-  text-align: left;
-}
-.dev-login summary {
-  cursor: pointer;
-  color: var(--faint);
-  font-size: 0.75rem;
-  letter-spacing: 0.02em;
-  text-align: center;
-  list-style: none;
-  padding: 0.5rem;
-  transition: color 0.4s var(--ease);
-}
-.dev-login summary::-webkit-details-marker { display: none; }
-.dev-login summary:hover { color: var(--muted); }
-.dev-login[open] summary { margin-bottom: 0.85rem; }
-.dev-login .entry-form { margin-bottom: 0.6rem; }
-.dev-login .link-btn { display: block; width: 100%; text-align: center; }
-
 /* ---------- 태블릿 이상 ---------- */
 
 @media (min-width: 768px) {
