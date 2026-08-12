@@ -209,7 +209,14 @@
   pointer-events: none;
 }
 
-.day-nums { display: flex; align-items: baseline; gap: 0.3rem; }
+/* 좁은 화면에서는 양력 옆에 음력을 나란히 둘 폭이 없어 잘린다(셀 약 47px).
+   아래로 쌓아서 음력 날짜가 온전히 보이게 한다. */
+.day-nums {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+}
 
 .solar-day {
   display: grid;
@@ -533,6 +540,9 @@
   .topbar { margin: 1.25rem auto 2rem; }
   .month-nav { margin-bottom: 1.5rem; }
   .cell { min-height: 104px; padding: 0.55rem 0.5rem; }
+
+  /* 폭이 넉넉하면 양력·음력을 한 줄에 나란히 */
+  .day-nums { flex-direction: row; align-items: baseline; gap: 0.3rem; }
   .day-panel { padding: 1.5rem 1.4rem 1.4rem; }
 
   /* 넓은 화면에서는 점 대신 제목 */
