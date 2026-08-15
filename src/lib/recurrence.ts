@@ -30,6 +30,16 @@ export function lastDayOfMonth(year: number, month: number): number {
 }
 
 /**
+ * 그 해에 이 항목이 찍히는 날짜들.
+ * 매년 반복은 1개, 매월 반복은 12개, 일회성은 그 해에 속할 때만 1개.
+ */
+export function occurrencesInYear(entry: EntryLike, year: number): Date[] {
+  const out: Date[] = []
+  for (let m = 1; m <= 12; m++) out.push(...occurrencesInMonth(entry, year, m))
+  return out.sort((a, b) => a.getTime() - b.getTime())
+}
+
+/**
  * from(그 날 포함) 이후 처음 찍히는 날짜.
  * 반복 없는 지난 일정처럼 앞으로 나올 일이 없으면 null.
  *

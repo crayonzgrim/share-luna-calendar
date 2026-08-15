@@ -520,10 +520,13 @@
   gap: 0.7rem;
   margin-bottom: 0.9rem;
 }
-.month-list__head h3 {
+.year-nav { display: flex; align-items: center; gap: 0.4rem; }
+.year-nav .nav-btn { width: 2rem; height: 2rem; font-size: 0.875rem; }
+.year-nav__label {
   display: flex;
   align-items: center;
   gap: 0.4rem;
+  min-width: 7rem;
   font-size: 1rem;
   font-weight: 550;
   letter-spacing: -0.03em;

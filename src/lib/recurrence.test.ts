@@ -3,6 +3,7 @@ import {
   expandMonth,
   nextOccurrence,
   occurrencesInMonth,
+  occurrencesInYear,
   parseISODate,
   lastDayOfMonth,
   toISODate,
@@ -141,6 +142,43 @@ describe('occurrencesInMonth — 음력 매년', () => {
 
   it('지원 범위를 벗어난 해는 조용히 비운다', () => {
     expect(occurrencesInMonth(birthday, 2060, 4)).toEqual([])
+  })
+})
+
+describe('occurrencesInYear', () => {
+  it('음력 매년 생신은 해마다 다른 양력 날짜 하나', () => {
+    const e = entry({
+      date_type: 'lunar', repeat: 'yearly',
+      event_date: '2026-05-01', lunar_month: 3, lunar_day: 15,
+    })
+    expect(occurrencesInYear(e, 2026)).toEqual([new Date(2026, 4, 1)])
+    expect(occurrencesInYear(e, 2027)).toEqual([new Date(2027, 3, 21)])
+    expect(occurrencesInYear(e, 2025)).toEqual([new Date(2025, 3, 12)])
+  })
+
+  it('양력 매년은 그 해 같은 월/일 하나', () => {
+    const e = entry({ repeat: 'yearly', event_date: '2026-10-09' })
+    expect(occurrencesInYear(e, 2030)).toEqual([new Date(2030, 9, 9)])
+  })
+
+  it('매월 반복은 12개', () => {
+    const e = entry({ repeat: 'monthly', event_date: '2026-01-25' })
+    expect(occurrencesInYear(e, 2027)).toHaveLength(12)
+  })
+
+  it('일회성은 그 해에 속할 때만 나온다', () => {
+    const e = entry({ event_date: '2026-09-03' })
+    expect(occurrencesInYear(e, 2026)).toEqual([new Date(2026, 8, 3)])
+    expect(occurrencesInYear(e, 2027)).toEqual([])
+  })
+
+  it('음력 12월 일정은 양력 해가 밀린다', () => {
+    const e = entry({
+      date_type: 'lunar', repeat: 'yearly',
+      event_date: '2027-01-22', lunar_month: 12, lunar_day: 15,
+    })
+    // 음력 2026/12/15 → 양력 2027-01-22
+    expect(occurrencesInYear(e, 2027)).toEqual([new Date(2027, 0, 22)])
   })
 })
 

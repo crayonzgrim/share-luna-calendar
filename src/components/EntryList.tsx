@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { WEEKDAY_LABELS } from '../lib/calendar'
 import { ENTRY_ICONS, findIcon } from '../lib/icons'
-import { nextOccurrence, parseISODate } from '../lib/recurrence'
+import { solarToLunar } from '../lib/lunar'
+import { occurrencesInYear, parseISODate } from '../lib/recurrence'
 import type { EntryWithAuthor } from '../lib/types'
 
 type Props = {
@@ -12,31 +13,45 @@ type Props = {
 /** 종류 없는 항목을 거를 때 쓰는 값. 실제 key와 겹치지 않게 둔다. */
 const NONE = ' none'
 
+type Row = { entry: EntryWithAuthor; date: Date | null }
+
 export default function EntryList({ entries, onJump }: Props) {
+  const [year, setYear] = useState(new Date().getFullYear())
   const [filter, setFilter] = useState<string | null>(null)
 
-  const today = new Date()
-
-  const rows = entries
-    .map((entry) => ({ entry, next: nextOccurrence(entry, today) }))
-    .sort(byNextThenTitle)
+  const rows: Row[] = entries
+    .map((entry) => {
+      const dates = occurrencesInYear(entry, year)
+      // 매월 반복을 12줄로 늘어놓으면 목록이 묻힌다. 첫 날짜만 대표로 쓴다.
+      return { entry, date: dates[0] ?? null }
+    })
+    .filter((r) => r.date !== null || r.entry.repeat !== 'none')
+    .sort(byDate)
 
   // 실제로 있는 종류만 칩으로 — 눌러도 빈 목록인 칩은 만들지 않는다
-  const present = new Set(entries.map((e) => e.icon ?? NONE))
+  const present = new Set(rows.map((r) => r.entry.icon ?? NONE))
   const chips = [
     ...ENTRY_ICONS.filter((i) => present.has(i.key)),
     ...(present.has(NONE) ? [{ key: NONE, emoji: '', label: '종류 없음' }] : []),
   ]
 
   const shown = filter ? rows.filter((r) => (r.entry.icon ?? NONE) === filter) : rows
+  const thisYear = new Date().getFullYear()
 
   return (
     <section className="month-list rise rise-4">
       <header className="month-list__head">
-        <h3>
-          전체 일정
-          {entries.length > 0 && <span className="count">{entries.length}</span>}
-        </h3>
+        <div className="year-nav">
+          <button type="button" className="nav-btn" onClick={() => setYear(year - 1)} aria-label="이전 해">‹</button>
+          <span className="year-nav__label">
+            {year}년 일정
+            {rows.length > 0 && <span className="count">{rows.length}</span>}
+          </span>
+          <button type="button" className="nav-btn" onClick={() => setYear(year + 1)} aria-label="다음 해">›</button>
+          {year !== thisYear && (
+            <button type="button" className="link-btn" onClick={() => setYear(thisYear)}>올해로</button>
+          )}
+        </div>
 
         {chips.length > 1 && (
           <div className="filters" role="group" aria-label="종류로 거르기">
@@ -66,25 +81,35 @@ export default function EntryList({ entries, onJump }: Props) {
 
       {shown.length === 0 ? (
         <p className="month-list__empty">
-          {entries.length === 0 ? '아직 저장한 일정이 없어요' : '이 종류의 일정이 없어요'}
+          {rows.length === 0 ? `${year}년에는 일정이 없어요` : '이 종류의 일정이 없어요'}
         </p>
       ) : (
         <ul className="month-list__items">
-          {shown.map(({ entry, next }) => {
+          {shown.map(({ entry, date }) => {
             const ico = findIcon(entry.icon)
+            const lunar = date ? solarToLunar(date) : null
             return (
               <li key={entry.id}>
                 <button
                   type="button"
                   className="list-row"
-                  disabled={!next}
-                  onClick={() => next && onJump(next)}
-                  title={next ? '달력에서 보기' : '앞으로 예정된 날짜가 없어요'}
+                  disabled={!date}
+                  onClick={() => date && onJump(date)}
+                  title={date ? '달력에서 보기' : undefined}
                 >
                   <span className="list-when">
-                    <span className="list-rule">{scheduleLabel(entry)}</span>
+                    <span className="list-rule">
+                      {date
+                        ? `${date.getMonth() + 1}월 ${date.getDate()}일 (${WEEKDAY_LABELS[date.getDay()]})`
+                        // 음력 변환은 2050년까지만 가능하다
+                        : '날짜 계산 범위 밖'}
+                    </span>
                     <span className="list-next">
-                      {next ? formatNext(next, today) : '지난 일정'}
+                      {entry.repeat === 'monthly'
+                        ? `매월 ${parseISODate(entry.event_date).getDate()}일`
+                        : lunar
+                          ? `음력 ${lunar.month}.${lunar.day}${entry.repeat === 'yearly' ? ' · 매년' : ''}`
+                          : ''}
                     </span>
                   </span>
 
@@ -93,6 +118,7 @@ export default function EntryList({ entries, onJump }: Props) {
                       {ico && <span aria-hidden="true">{ico.emoji} </span>}
                       {entry.title}
                     </span>
+                    {entry.date_type === 'lunar' && <span className="badge badge--lunar">음력</span>}
                     {entry.memo && <span className="list-memo">{entry.memo}</span>}
                   </span>
 
@@ -107,39 +133,10 @@ export default function EntryList({ entries, onJump }: Props) {
   )
 }
 
-/** 예정일이 가까운 순. 예정 없는(지난) 일정은 맨 뒤로. */
-function byNextThenTitle(
-  a: { entry: EntryWithAuthor; next: Date | null },
-  b: { entry: EntryWithAuthor; next: Date | null },
-): number {
-  if (a.next && b.next) return a.next.getTime() - b.next.getTime()
-  if (a.next) return -1
-  if (b.next) return 1
+/** 그 해 날짜순. 날짜가 없는(매월) 항목은 맨 뒤. */
+function byDate(a: Row, b: Row): number {
+  if (a.date && b.date) return a.date.getTime() - b.date.getTime()
+  if (a.date) return -1
+  if (b.date) return 1
   return a.entry.title.localeCompare(b.entry.title, 'ko')
-}
-
-/** 반복 일정은 날짜 하나로 못 적는다. 규칙 자체를 문장으로 보여준다. */
-function scheduleLabel(e: EntryWithAuthor): string {
-  const base = parseISODate(e.event_date)
-
-  if (e.date_type === 'lunar' && e.repeat === 'yearly' && e.lunar_month && e.lunar_day) {
-    return `매년 음력 ${e.lunar_month}.${e.lunar_day}`
-  }
-  if (e.repeat === 'yearly') return `매년 ${base.getMonth() + 1}.${base.getDate()}`
-  if (e.repeat === 'monthly') return `매월 ${base.getDate()}일`
-  return `${base.getFullYear()}.${base.getMonth() + 1}.${base.getDate()}`
-}
-
-function formatNext(next: Date, today: Date): string {
-  const days = Math.round(
-    (new Date(next.getFullYear(), next.getMonth(), next.getDate()).getTime() -
-      new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) /
-      86400000,
-  )
-  const weekday = WEEKDAY_LABELS[next.getDay()]
-  const date = `${next.getMonth() + 1}월 ${next.getDate()}일(${weekday})`
-
-  if (days === 0) return `오늘 · ${date}`
-  if (days === 1) return `내일 · ${date}`
-  return `${days}일 뒤 · ${date}`
 }
