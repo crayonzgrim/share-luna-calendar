@@ -30,6 +30,25 @@ export function lastDayOfMonth(year: number, month: number): number {
 }
 
 /**
+ * from(그 날 포함) 이후 처음 찍히는 날짜.
+ * 반복 없는 지난 일정처럼 앞으로 나올 일이 없으면 null.
+ *
+ * 음력 반복은 양력 날짜가 해마다 달라 계산으로 바로 구할 수 없다.
+ * 한 달씩 앞으로 훑는다 — 최대 24개월이면 매년 반복도 반드시 걸린다.
+ */
+export function nextOccurrence(entry: EntryLike, from: Date, maxMonths = 24): Date | null {
+  const start = new Date(from.getFullYear(), from.getMonth(), from.getDate())
+  for (let i = 0; i <= maxMonths; i++) {
+    const probe = new Date(start.getFullYear(), start.getMonth() + i, 1)
+    const hits = occurrencesInMonth(entry, probe.getFullYear(), probe.getMonth() + 1)
+      .filter((d) => d.getTime() >= start.getTime())
+      .sort((a, b) => a.getTime() - b.getTime())
+    if (hits.length) return hits[0]
+  }
+  return null
+}
+
+/**
  * 여러 항목을 한 달치로 펼쳐 날짜순으로 정렬한다.
  * 반복 항목은 그 달에 실제로 찍히는 날짜로 바뀌어 나온다.
  * 달력 그리드와 아래 목록이 같은 결과를 보게 하려고 한 곳에 모아둔다.

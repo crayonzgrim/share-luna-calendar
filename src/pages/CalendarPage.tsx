@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import GroupSwitcher from '../components/GroupSwitcher.tsx'
 import MonthGrid from '../components/MonthGrid.tsx'
-import MonthList from '../components/MonthList.tsx'
+import EntryList from '../components/EntryList.tsx'
 import DayPanel from '../components/DayPanel.tsx'
 import { shiftMonth } from '../lib/calendar'
 import { signOut, useAuth } from '../lib/useAuth'
@@ -23,6 +23,12 @@ export default function CalendarPage() {
     const [y, m] = shiftMonth(year, month, delta)
     setYear(y)
     setMonth(m)
+  }
+
+  function jumpTo(d: Date) {
+    setYear(d.getFullYear())
+    setMonth(d.getMonth() + 1)
+    setSelected(d)
   }
 
   function goToday() {
@@ -90,13 +96,7 @@ export default function CalendarPage() {
         />
       </div>
 
-      <MonthList
-        year={year}
-        month={month}
-        entries={entries}
-        selected={selected}
-        onSelect={setSelected}
-      />
+      <EntryList entries={entries} onJump={jumpTo} />
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   expandMonth,
+  nextOccurrence,
   occurrencesInMonth,
   parseISODate,
   lastDayOfMonth,
@@ -140,6 +141,45 @@ describe('occurrencesInMonth — 음력 매년', () => {
 
   it('지원 범위를 벗어난 해는 조용히 비운다', () => {
     expect(occurrencesInMonth(birthday, 2060, 4)).toEqual([])
+  })
+})
+
+describe('nextOccurrence', () => {
+  it('그 날 당일도 다음 일정으로 친다', () => {
+    const e = entry({ event_date: '2026-08-15' })
+    expect(nextOccurrence(e, new Date(2026, 7, 15))).toEqual(new Date(2026, 7, 15))
+  })
+
+  it('지나간 일회성 일정은 null', () => {
+    const e = entry({ event_date: '2026-08-15' })
+    expect(nextOccurrence(e, new Date(2026, 7, 16))).toBeNull()
+  })
+
+  it('양력 매년은 내년 같은 날로 넘어간다', () => {
+    const e = entry({ repeat: 'yearly', event_date: '2026-08-15' })
+    expect(nextOccurrence(e, new Date(2026, 7, 16))).toEqual(new Date(2027, 7, 15))
+  })
+
+  it('양력 매월은 다음 달로 넘어간다', () => {
+    const e = entry({ repeat: 'monthly', event_date: '2026-01-10' })
+    expect(nextOccurrence(e, new Date(2026, 7, 11))).toEqual(new Date(2026, 8, 10))
+  })
+
+  it('음력 매년은 해마다 다른 양력 날짜를 찾아낸다', () => {
+    const e = entry({
+      date_type: 'lunar', repeat: 'yearly',
+      event_date: '2026-05-01', lunar_month: 3, lunar_day: 15,
+    })
+    // 2026-05-01이 지난 뒤에는 2027-04-21이 다음 차례
+    expect(nextOccurrence(e, new Date(2026, 4, 2))).toEqual(new Date(2027, 3, 21))
+  })
+
+  it('지원 범위를 벗어나면 null (무한 루프에 빠지지 않는다)', () => {
+    const e = entry({
+      date_type: 'lunar', repeat: 'yearly',
+      event_date: '2026-05-01', lunar_month: 3, lunar_day: 15,
+    })
+    expect(nextOccurrence(e, new Date(2060, 0, 1))).toBeNull()
   })
 })
 

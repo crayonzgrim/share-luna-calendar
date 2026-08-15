@@ -587,19 +587,24 @@
   transition: background 0.4s var(--ease);
 }
 .list-row:hover { background: var(--shell); }
-.list-row.on { background: var(--accent-soft); }
 
-.list-date {
+.list-when {
   display: flex;
   flex-direction: column;
-  align-items: center;
   flex-shrink: 0;
-  width: 2.5rem;
-  line-height: 1.25;
+  width: 7.25rem;
+  line-height: 1.3;
 }
-.list-day { font-size: 1rem; font-weight: 600; letter-spacing: -0.03em; }
-.list-weekday { font-size: 0.625rem; color: var(--muted); }
-.list-lunar { font-size: 0.5625rem; color: var(--faint); white-space: nowrap; }
+.list-rule {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  white-space: nowrap;
+}
+.list-next { font-size: 0.6875rem; color: var(--muted); white-space: nowrap; }
+
+.list-row:disabled { cursor: default; opacity: 0.5; }
+.list-row:disabled:hover { background: none; }
 
 .list-body { min-width: 0; flex: 1; }
 .list-title {
