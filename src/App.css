@@ -158,11 +158,19 @@
 
 /* ---------- 달력 ---------- */
 
-.calendar-layout { display: grid; gap: 1.25rem; align-items: start; }
+/* 아래 minmax(0, 1fr)들이 중요하다.
+   그냥 1fr은 minmax(auto, 1fr)이라 칸의 최소 너비가 내용 크기로 잡힌다.
+   이모지·제목이 길어지면 그리드가 화면보다 넓어지고 페이지 전체가 가로로 스크롤된다. */
+.calendar-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
 
 .month-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 
 .weekday {
@@ -248,16 +256,26 @@
   overflow: hidden;
 }
 
-/* 모바일: 제목 대신 점 */
+/* 좁은 화면: 제목은 감추고 이모지로 구분한다.
+   종류를 안 고른 일정은 이모지가 없으니 점으로 표시한다. */
 .entry-chip {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  max-width: 100%;
+}
+.entry-chip:not(.has-emoji)::before {
+  content: '';
   width: 5px;
   height: 5px;
   border-radius: 999px;
   background: var(--accent);
-  overflow: hidden;
-  text-indent: -999px;
   flex-shrink: 0;
 }
+.chip-emoji { font-size: 0.6875rem; line-height: 1.1; }
+.chip-text { display: none; }
+
 .entry-more { font-size: 0.5625rem; color: var(--faint); }
 
 /* ---------- 날짜 상세 ---------- */
@@ -295,6 +313,7 @@
 }
 
 .entry-title { font-size: 0.9375rem; font-weight: 550; letter-spacing: -0.02em; }
+.entry-emoji { margin-right: 0.35rem; font-size: 0.9375rem; }
 
 .badge {
   display: inline-block;
@@ -319,18 +338,51 @@
 }
 .author { display: block; margin-top: 0.35rem; color: var(--faint); font-size: 0.6875rem; letter-spacing: 0.01em; }
 
-.del-btn {
-  flex-shrink: 0;
+.row-actions { display: flex; gap: 0.15rem; flex-shrink: 0; }
+.row-btn {
   background: none;
   border: none;
   color: var(--faint);
   cursor: pointer;
   font-size: 0.75rem;
-  padding: 0.2rem 0.35rem;
+  padding: 0.2rem 0.4rem;
   border-radius: 999px;
   transition: color 0.45s var(--ease), background 0.45s var(--ease);
 }
-.del-btn:hover { color: var(--danger); background: var(--shell); }
+.row-btn:hover { color: var(--fg); background: var(--shell); }
+.row-btn.danger:hover { color: var(--danger); }
+
+/* 수정 중인 항목을 눈에 띄게 — 아래 폼이 무엇을 고치는 중인지 알려준다 */
+.entry-list li.editing {
+  background: var(--accent-soft);
+  border-radius: 0.75rem;
+  padding-inline: 0.6rem;
+  margin-inline: -0.6rem;
+}
+
+.form-mode {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--accent);
+}
+
+.form-actions { display: flex; gap: 0.4rem; }
+.form-actions button[type='submit'] { flex: 1; }
+
+.ghost-btn {
+  padding: 0.7rem 1.1rem;
+  border: 1px solid var(--shell-line);
+  border-radius: 999px;
+  background: var(--shell);
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.45s var(--ease), color 0.45s var(--ease);
+}
+.ghost-btn:hover { background: var(--surface); color: var(--fg); }
 
 /* ---------- 폼 ---------- */
 
@@ -359,6 +411,47 @@
   background: var(--surface);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
+
+/* 일정 종류 고르기 — 이모지 키보드 대신 프리셋 버튼 */
+.icon-picker {
+  display: grid;
+  /* 1fr은 minmax(auto, 1fr)이라 라벨이 길면 칸이 밀려 페이지 전체가 가로로 넘친다.
+     최소값을 0으로 낮춰야 좁은 화면에서도 4열이 유지된다. */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.3rem;
+}
+.icon-opt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.45rem 0.2rem;
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+  background: var(--shell);
+  font-size: 1.0625rem;
+  line-height: 1.1;
+  cursor: pointer;
+  transition: background 0.45s var(--ease), border-color 0.45s var(--ease),
+              transform 0.35s var(--ease);
+}
+.icon-opt:hover { background: var(--surface); }
+.icon-opt:active { transform: scale(0.95); }
+.icon-opt.on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.icon-opt__label {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--muted);
+}
+.icon-opt.on .icon-opt__label { color: var(--accent); }
 
 .form-row { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
 .form-row select { width: auto; flex: 1; min-width: 7rem; }
@@ -522,23 +615,30 @@
   .day-nums { flex-direction: row; align-items: baseline; gap: 0.3rem; }
   .day-panel { padding: 1.5rem 1.4rem 1.4rem; }
 
-  /* 넓은 화면에서는 점 대신 제목 */
+  /* 넓은 화면에서는 이모지와 제목을 함께 */
   .entry-chip {
     width: 100%;
-    height: auto;
+    gap: 4px;
     border-radius: 0.4rem;
-    text-indent: 0;
     background: var(--accent-soft);
     color: var(--fg);
     font-size: 0.6875rem;
     font-weight: 500;
     letter-spacing: -0.015em;
     padding: 2px 6px;
+  }
+  .entry-chip:not(.has-emoji)::before { display: none; }
+  .chip-text {
+    display: block;
+    /* flex 자식은 min-width가 auto라 내용보다 작아지지 않는다.
+       0으로 낮춰야 말줄임(...)이 걸리고 긴 제목이 칸을 밀어내지 않는다. */
+    min-width: 0;
+    overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
   }
   .entry-more { font-size: 0.625rem; padding-left: 6px; }
 
   .calendar-layout { grid-template-columns: minmax(0, 1fr) 340px; gap: 1.5rem; }
-  .group-list { grid-template-columns: repeat(2, 1fr); }
+  .group-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

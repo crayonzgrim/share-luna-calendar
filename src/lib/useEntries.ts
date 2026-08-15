@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { createEntry, deleteEntry, fetchEntries } from './api'
-import type { NewEntry } from './api'
+import { createEntry, deleteEntry, fetchEntries, updateEntry } from './api'
+import type { EntryPatch, NewEntry } from './api'
 import type { EntryWithAuthor } from './types'
 
 export function useEntries(groupId: string | null) {
@@ -33,10 +33,15 @@ export function useEntries(groupId: string | null) {
     setEntries((prev) => [...prev, created])
   }, [])
 
+  const edit = useCallback(async (id: string, patch: EntryPatch) => {
+    const updated = await updateEntry(id, patch)
+    setEntries((prev) => prev.map((e) => (e.id === id ? updated : e)))
+  }, [])
+
   const remove = useCallback(async (id: string) => {
     await deleteEntry(id)
     setEntries((prev) => prev.filter((e) => e.id !== id))
   }, [])
 
-  return { entries, loading, error, add, remove, reload }
+  return { entries, loading, error, add, edit, remove, reload }
 }

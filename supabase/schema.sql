@@ -48,6 +48,8 @@ create table if not exists public.entries (
   author_id     uuid not null references public.profiles(id) on delete cascade,
   title         text not null check (length(title) between 1 and 200),
   memo          text check (length(memo) <= 2000),
+  -- 일정 종류 key ('birthday', 'memorial' …). 이모지·라벨 매핑은 앱(src/lib/icons.ts)에 있다.
+  icon          text check (icon is null or length(icon) <= 32),
   date_type     text not null default 'solar' check (date_type in ('solar', 'lunar')),
   repeat        text not null default 'none'  check (repeat in ('none', 'yearly', 'monthly')),
   event_date    date not null,

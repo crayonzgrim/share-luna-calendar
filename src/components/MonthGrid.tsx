@@ -1,4 +1,5 @@
 import { buildMonthGrid, isSameDay, WEEKDAY_LABELS } from '../lib/calendar'
+import { findIcon } from '../lib/icons'
 import { solarToLunar } from '../lib/lunar'
 import { occurrencesInMonth } from '../lib/recurrence'
 import type { EntryWithAuthor } from '../lib/types'
@@ -59,9 +60,19 @@ export default function MonthGrid({ year, month, entries, selected, onSelect }: 
                 </span>
 
                 <span className="cell-entries">
-                  {dayEntries.slice(0, 3).map((e) => (
-                    <span key={e.id} className="entry-chip" title={e.title}>{e.title}</span>
-                  ))}
+                  {dayEntries.slice(0, 3).map((e) => {
+                    const ico = findIcon(e.icon)
+                    return (
+                      <span
+                        key={e.id}
+                        className={ico ? 'entry-chip has-emoji' : 'entry-chip'}
+                        title={ico ? `${ico.label} · ${e.title}` : e.title}
+                      >
+                        {ico && <span className="chip-emoji" aria-hidden="true">{ico.emoji}</span>}
+                        <span className="chip-text">{e.title}</span>
+                      </span>
+                    )
+                  })}
                   {dayEntries.length > 3 && (
                     <span className="entry-more">+{dayEntries.length - 3}</span>
                   )}

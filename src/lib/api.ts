@@ -57,6 +57,20 @@ export async function createEntry(entry: NewEntry): Promise<EntryWithAuthor> {
   return data as unknown as EntryWithAuthor
 }
 
+/** 수정 가능한 항목. 날짜 관련 필드는 뺀다 — 날짜를 바꾸려면 지우고 다시 만든다. */
+export type EntryPatch = Pick<Entry, 'title' | 'memo' | 'icon' | 'repeat'>
+
+export async function updateEntry(id: string, patch: EntryPatch): Promise<EntryWithAuthor> {
+  const { data, error } = await supabase
+    .from('entries')
+    .update(patch)
+    .eq('id', id)
+    .select('*, author:profiles(name, avatar_url)')
+    .single()
+  if (error) throw error
+  return data as unknown as EntryWithAuthor
+}
+
 export async function deleteEntry(id: string): Promise<void> {
   const { error } = await supabase.from('entries').delete().eq('id', id)
   if (error) throw error

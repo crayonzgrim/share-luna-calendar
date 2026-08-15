@@ -11,7 +11,7 @@ import { useGroups } from '../lib/useGroups'
 export default function CalendarPage() {
   const { user } = useAuth()
   const { groups, selectedId, select, loading: groupsLoading, error: groupsError } = useGroups(!!user)
-  const { entries, add, remove, error: entriesError } = useEntries(selectedId)
+  const { entries, add, edit, remove, error: entriesError } = useEntries(selectedId)
 
   const today = new Date()
   const [year, setYear] = useState(today.getFullYear())
@@ -84,6 +84,7 @@ export default function CalendarPage() {
           userId={user?.id ?? ''}
           entries={entries}
           onAdd={add}
+          onEdit={edit}
           onDelete={remove}
         />
       </div>

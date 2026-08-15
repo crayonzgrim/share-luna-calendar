@@ -19,6 +19,8 @@ export type Entry = {
   author_id: string
   title: string
   memo: string | null
+  /** 일정 종류 key. 이모지·라벨 매핑은 lib/icons.ts */
+  icon: string | null
   date_type: DateType
   repeat: RepeatRule
   event_date: string
