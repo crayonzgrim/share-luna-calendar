@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fetchMyGroups } from './api'
+import { errorMessage } from './errors'
 import type { Group } from './types'
 
 const LAST_GROUP_KEY = 'share-calendar:last-group'
@@ -23,7 +24,7 @@ export function useGroups(enabled: boolean) {
         return list[0]?.id ?? null
       })
     } catch (e) {
-      setError(e instanceof Error ? e.message : '그룹을 불러오지 못했어요')
+      setError(errorMessage(e, '그룹을 불러오지 못했어요'))
     } finally {
       setLoading(false)
     }

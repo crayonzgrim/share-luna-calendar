@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { joinGroupByCode } from '../lib/api'
+import { errorMessage } from '../lib/errors'
 
 export default function Join() {
   const { code } = useParams<{ code: string }>()
@@ -11,7 +12,7 @@ export default function Join() {
     if (!code) return
     joinGroupByCode(code)
       .then(() => navigate('/', { replace: true }))
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : '가입에 실패했어요'))
+      .catch((e: unknown) => setError(errorMessage(e, '가입에 실패했어요')))
   }, [code, navigate])
 
   if (error) {

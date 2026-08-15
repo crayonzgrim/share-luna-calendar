@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createEntry, deleteEntry, fetchEntries, updateEntry } from './api'
 import type { EntryPatch, NewEntry } from './api'
+import { errorMessage } from './errors'
 import type { EntryWithAuthor } from './types'
 
 export function useEntries(groupId: string | null) {
@@ -18,7 +19,7 @@ export function useEntries(groupId: string | null) {
       setEntries(await fetchEntries(groupId))
       setError(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : '일정을 불러오지 못했어요')
+      setError(errorMessage(e, '일정을 불러오지 못했어요'))
     } finally {
       setLoading(false)
     }

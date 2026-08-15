@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { createGroup, fetchGroupMembers } from '../lib/api'
+import { errorMessage } from '../lib/errors'
 import { useAuth } from '../lib/useAuth'
 import { useGroups } from '../lib/useGroups'
 import type { Profile } from '../lib/types'
@@ -30,7 +31,7 @@ export default function Groups() {
       setError(null)
       await reload()
     } catch (err) {
-      setError(err instanceof Error ? err.message : '그룹을 만들지 못했어요')
+      setError(errorMessage(err, '그룹을 만들지 못했어요'))
     }
   }
 

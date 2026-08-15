@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { isSameDay } from '../lib/calendar'
+import { errorMessage } from '../lib/errors'
 import { ENTRY_ICONS, findIcon } from '../lib/icons'
 import { lunarToSolarClamped, solarToLunar } from '../lib/lunar'
 import { occurrencesInMonth, toISODate } from '../lib/recurrence'
@@ -100,7 +101,7 @@ export default function DayPanel({
       }
       reset()
     } catch (err) {
-      setError(err instanceof Error ? err.message : '저장하지 못했어요')
+      setError(errorMessage(err, '저장하지 못했어요'))
     } finally {
       setSaving(false)
     }
