@@ -30,6 +30,24 @@ export function lastDayOfMonth(year: number, month: number): number {
 }
 
 /**
+ * 여러 항목을 한 달치로 펼쳐 날짜순으로 정렬한다.
+ * 반복 항목은 그 달에 실제로 찍히는 날짜로 바뀌어 나온다.
+ * 달력 그리드와 아래 목록이 같은 결과를 보게 하려고 한 곳에 모아둔다.
+ */
+export function expandMonth<T extends EntryLike>(
+  entries: T[],
+  year: number,
+  month: number,
+): Array<{ date: Date; entry: T }> {
+  const out: Array<{ date: Date; entry: T }> = []
+  for (const entry of entries) {
+    for (const date of occurrencesInMonth(entry, year, month)) out.push({ date, entry })
+  }
+  out.sort((a, b) => a.date.getTime() - b.date.getTime())
+  return out
+}
+
+/**
  * 항목이 지정된 양력 월(year, month 1-based)에 표시될 날짜들.
  * 보통 0개 또는 1개를 돌려준다.
  */

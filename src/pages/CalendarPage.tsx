@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import GroupSwitcher from '../components/GroupSwitcher.tsx'
 import MonthGrid from '../components/MonthGrid.tsx'
+import MonthList from '../components/MonthList.tsx'
 import DayPanel from '../components/DayPanel.tsx'
 import { shiftMonth } from '../lib/calendar'
 import { signOut, useAuth } from '../lib/useAuth'
@@ -88,6 +89,14 @@ export default function CalendarPage() {
           onDelete={remove}
         />
       </div>
+
+      <MonthList
+        year={year}
+        month={month}
+        entries={entries}
+        selected={selected}
+        onSelect={setSelected}
+      />
     </div>
   )
 }

@@ -1,7 +1,7 @@
 import { buildMonthGrid, isSameDay, WEEKDAY_LABELS } from '../lib/calendar'
 import { findIcon } from '../lib/icons'
 import { solarToLunar } from '../lib/lunar'
-import { occurrencesInMonth } from '../lib/recurrence'
+import { expandMonth } from '../lib/recurrence'
 import type { EntryWithAuthor } from '../lib/types'
 
 type Props = {
@@ -16,15 +16,14 @@ export default function MonthGrid({ year, month, entries, selected, onSelect }: 
   const cells = buildMonthGrid(year, month)
   const today = new Date()
 
-  // 이 달에 표시할 항목을 날짜별로 모아둔다
+  // 이 달에 표시할 항목을 날짜별로 모아둔다.
+  // 아래 목록(MonthList)과 같은 전개 결과를 쓰도록 expandMonth를 공유한다.
   const byDate = new Map<string, EntryWithAuthor[]>()
-  for (const entry of entries) {
-    for (const d of occurrencesInMonth(entry, year, month)) {
-      const key = d.toDateString()
-      const list = byDate.get(key)
-      if (list) list.push(entry)
-      else byDate.set(key, [entry])
-    }
+  for (const { date, entry } of expandMonth(entries, year, month)) {
+    const key = date.toDateString()
+    const list = byDate.get(key)
+    if (list) list.push(entry)
+    else byDate.set(key, [entry])
   }
 
   return (

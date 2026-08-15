@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { occurrencesInMonth, parseISODate, lastDayOfMonth, toISODate } from './recurrence'
+import {
+  expandMonth,
+  occurrencesInMonth,
+  parseISODate,
+  lastDayOfMonth,
+  toISODate,
+} from './recurrence'
 import type { EntryLike } from './recurrence'
 
 const entry = (over: Partial<EntryLike>): EntryLike => ({
@@ -134,6 +140,32 @@ describe('occurrencesInMonth — 음력 매년', () => {
 
   it('지원 범위를 벗어난 해는 조용히 비운다', () => {
     expect(occurrencesInMonth(birthday, 2060, 4)).toEqual([])
+  })
+})
+
+describe('expandMonth', () => {
+  it('여러 항목을 날짜순으로 펼친다', () => {
+    const late = entry({ event_date: '2026-08-25' })
+    const early = entry({ event_date: '2026-08-03' })
+    const mid = entry({ repeat: 'monthly', event_date: '2026-01-10' })
+
+    const got = expandMonth([late, early, mid], 2026, 8)
+    expect(got.map((o) => o.date.getDate())).toEqual([3, 10, 25])
+  })
+
+  it('그 달에 없는 항목은 빠진다', () => {
+    const other = entry({ event_date: '2026-09-01' })
+    expect(expandMonth([other], 2026, 8)).toEqual([])
+  })
+
+  it('음력 반복도 전개되어 섞여 정렬된다', () => {
+    const solar = entry({ event_date: '2026-05-20' })
+    const lunarYearly = entry({
+      date_type: 'lunar', repeat: 'yearly',
+      event_date: '2026-05-01', lunar_month: 3, lunar_day: 15,
+    })
+    const got = expandMonth([solar, lunarYearly], 2026, 5)
+    expect(got.map((o) => o.date.getDate())).toEqual([1, 20])
   })
 })
 
