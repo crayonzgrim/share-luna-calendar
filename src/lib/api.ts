@@ -1,4 +1,6 @@
-import { supabase } from './supabase'
+// 이 파일은 mobile/에서도 그대로 쓴다. '@db'는 각 앱이 자기 supabase 클라이언트를
+// 연결하는 통로다 — 웹은 vite.config.ts, 앱은 mobile/metro.config.js에서 이어준다.
+import { supabase } from '@db'
 import type { Entry, EntryWithAuthor, Group, Profile } from './types'
 
 export async function fetchMyGroups(): Promise<Group[]> {
@@ -14,6 +16,22 @@ export async function createGroup(name: string, userId: string): Promise<Group> 
   const { data, error } = await supabase
     .from('groups')
     .insert({ name, created_by: userId })
+    .select('id, name, invite_code, created_by')
+    .single()
+  if (error) throw error
+  return data
+}
+
+/**
+ * 그룹 이름 변경. owner만 성공한다 — RLS의 "owner updates group" 정책이 막는다.
+ * 화면에서 버튼을 숨기는 건 편의일 뿐이고 실제 차단은 DB가 한다.
+ * owner가 아니면 업데이트된 행이 없어 .single()이 에러를 낸다.
+ */
+export async function updateGroupName(id: string, name: string): Promise<Group> {
+  const { data, error } = await supabase
+    .from('groups')
+    .update({ name })
+    .eq('id', id)
     .select('id, name, invite_code, created_by')
     .single()
   if (error) throw error
