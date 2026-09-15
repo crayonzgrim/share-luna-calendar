@@ -27,3 +27,8 @@ dist-ssr
 *.sln
 *.sw?
 .gstack/
+
+# 로컬 도구 상태 (claude / serena / bkit 스냅샷)
+/.claude/
+/.serena/
+docs/.pdca-snapshots/
