@@ -223,13 +223,18 @@ create policy "authenticated create groups" on public.groups
   for insert to authenticated
   with check (created_by = auth.uid());
 
+-- WITH CHECK가 없으면 owner가 created_by를 남의 id로 바꿔 그룹을 통째로 넘길 수 있다.
+-- USING은 "어떤 행을 고칠 수 있나"만 보고 "고친 결과가 유효한가"는 안 보기 때문이다.
+-- created_by = auth.uid()는 곧 "고친 뒤에도 내가 만든 그룹"이라는 뜻이다
+-- (그룹을 만든 사람이 트리거로 owner가 되므로 owner와 created_by는 늘 같은 사람이다).
 drop policy if exists "owner updates group" on public.groups;
 create policy "owner updates group" on public.groups
   for update to authenticated
   using (exists (
     select 1 from public.group_members
     where group_id = groups.id and user_id = auth.uid() and role = 'owner'
-  ));
+  ))
+  with check (created_by = auth.uid());
 
 drop policy if exists "owner deletes group" on public.groups;
 create policy "owner deletes group" on public.groups
