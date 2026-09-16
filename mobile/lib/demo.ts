@@ -12,7 +12,7 @@ import type { EntryWithAuthor, Group, Profile } from '../../src/lib/types'
  * 카카오 로그인이 확인되면 이 파일과 아래 세 곳의 참조를 지운다:
  *   app/_layout.tsx · app/index.tsx · app/groups.tsx
  */
-export const DEMO = true
+export const DEMO = false
 
 export const DEMO_USER_ID = '00000000-0000-4000-8000-000000000001'
 
