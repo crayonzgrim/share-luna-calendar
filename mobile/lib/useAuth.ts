@@ -52,23 +52,6 @@ export async function signInWithKakao(): Promise<void> {
   if (exchangeError) throw exchangeError
 }
 
-/**
- * 임시 — 카카오 없이 화면을 둘러보려고 익명 세션을 만든다.
- *
- * 가짜 세션이 아니라 진짜 auth.uid()가 생기므로 RLS가 정상 동작하고,
- * handle_new_user 트리거가 프로필('이름없음')까지 만들어줘서
- * 그룹 생성·일정 추가가 실제로 다 된다.
- *
- * 동작하려면 Supabase Dashboard > Authentication > Sign In / Providers에서
- * Anonymous sign-ins를 켜야 한다.
- *
- * ponytail: 카카오 로그인 왕복이 확인되면 이 함수와 Login의 버튼을 함께 지운다.
- */
-export async function signInAnonymously(): Promise<void> {
-  const { error } = await supabase.auth.signInAnonymously()
-  if (error) throw error
-}
-
 export function signOut() {
   return supabase.auth.signOut()
 }

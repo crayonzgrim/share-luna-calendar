@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { Pressable, Text, View } from 'react-native'
 import { errorMessage } from '../../src/lib/errors'
-import { signInAnonymously, signInWithKakao } from '../lib/useAuth'
+import { signInWithKakao } from '../lib/useAuth'
 import { lift, radius, useColors } from '../lib/theme'
 import { ErrorText, Eyebrow } from './ui'
 
@@ -79,25 +79,6 @@ export default function Login() {
         >
           <Text style={{ fontSize: 14, color: '#191600' }}>↗</Text>
         </View>
-      </Pressable>
-
-      {/* ponytail: 임시 — 카카오 로그인 왕복이 확인되면 이 버튼과 signInAnonymously를 함께 지운다 */}
-      <Pressable
-        onPress={() => void start(signInAnonymously, '둘러보기로 들어가지 못했어요')}
-        disabled={busy}
-        style={({ pressed }) => ({
-          paddingVertical: 10,
-          paddingHorizontal: 18,
-          borderRadius: radius.pill,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: c.shellLine,
-          backgroundColor: pressed ? c.shell : 'transparent',
-          opacity: busy ? 0.5 : 1,
-        })}
-      >
-        <Text style={{ fontSize: 13, fontWeight: '500', color: c.muted }}>
-          로그인 없이 둘러보기 (임시)
-        </Text>
       </Pressable>
 
       {error && <ErrorText style={{ textAlign: 'center' }}>{error}</ErrorText>}
