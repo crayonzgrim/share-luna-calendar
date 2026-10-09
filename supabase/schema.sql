@@ -56,6 +56,8 @@ create table if not exists public.entries (
   lunar_month   int  check (lunar_month between 1 and 12),
   lunar_day     int  check (lunar_day   between 1 and 30),
   is_leap_month boolean not null default false,
+  -- 첨부 사진의 Storage 경로 (버킷 entry-images). 아래 Storage 절 참고.
+  image_paths   text[] not null default '{}' check (cardinality(image_paths) <= 5),
   created_at    timestamptz not null default now(),
   -- 음력 항목은 음력 월/일이 반드시 있어야 한다
   constraint lunar_fields_present check (
@@ -300,3 +302,37 @@ grant select, insert, update, delete  on public.entries       to authenticated;
 grant execute on function public.join_group_by_code(text) to authenticated;
 grant execute on function public.is_group_member(uuid)    to authenticated;
 grant execute on function public.shares_group_with(uuid)  to authenticated;
+
+
+-- ---------- Storage: 일정 첨부 사진 ----------
+-- 비공개 버킷. 경로 규칙 {group_id}/{올린 사람 user_id}/{랜덤}.jpg —
+-- 앞의 두 칸으로 권한을 가른다. 자세한 이유는 migrations/006-entry-images.sql.
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('entry-images', 'entry-images', false, 5 * 1024 * 1024, array['image/jpeg'])
+on conflict (id) do nothing;
+
+drop policy if exists "members read entry images" on storage.objects;
+create policy "members read entry images" on storage.objects
+  for select to authenticated
+  using (
+    bucket_id = 'entry-images'
+    and public.is_group_member(((storage.foldername(name))[1])::uuid)
+  );
+
+drop policy if exists "members upload own entry images" on storage.objects;
+create policy "members upload own entry images" on storage.objects
+  for insert to authenticated
+  with check (
+    bucket_id = 'entry-images'
+    and public.is_group_member(((storage.foldername(name))[1])::uuid)
+    and (storage.foldername(name))[2] = auth.uid()::text
+  );
+
+drop policy if exists "uploader deletes entry images" on storage.objects;
+create policy "uploader deletes entry images" on storage.objects
+  for delete to authenticated
+  using (
+    bucket_id = 'entry-images'
+    and (storage.foldername(name))[2] = auth.uid()::text
+  );
