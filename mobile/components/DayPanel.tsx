@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import * as ImagePicker from 'expo-image-picker'
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator'
+import { MAX_ENTRY_IMAGES, removeEntryImages, uploadEntryImage } from '../../src/lib/api'
 import type { EntryPatch, NewEntry } from '../../src/lib/api'
 import { isSameDay } from '../../src/lib/calendar'
 import { errorMessage } from '../../src/lib/errors'
@@ -8,9 +11,11 @@ import { lunarToSolarClamped, solarToLunar } from '../../src/lib/lunar'
 import { occurrencesInMonth, toISODate } from '../../src/lib/recurrence'
 import type { DateType, RepeatRule } from '../../src/lib/recurrence'
 import type { EntryWithAuthor } from '../../src/lib/types'
+import { useImageUrls } from '../../src/lib/useImageUrls'
 import { eventColor, radius, useColors } from '../lib/theme'
 import { Badge, ErrorText } from './ui'
 import Segmented from './Segmented'
+import Thumbs from './Thumbs'
 
 type Props = {
   date: Date
@@ -35,6 +40,10 @@ export default function DayPanel({
   const [icon, setIcon] = useState<string | null>(null)
   const [dateType, setDateType] = useState<DateType>('solar')
   const [repeat, setRepeat] = useState<RepeatRule>('none')
+  // 이미 올라간 사진(경로)과 이번에 고른 사진(기기 안 파일)을 따로 든다.
+  // 고른 사진은 저장을 누를 때 올린다 — 취소하면 Storage에 쓰레기가 남지 않는다.
+  const [keptPaths, setKeptPaths] = useState<string[]>([])
+  const [newUris, setNewUris] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -43,6 +52,8 @@ export default function DayPanel({
   const dayEntries = entries.filter((e) =>
     occurrencesInMonth(e, date.getFullYear(), date.getMonth() + 1).some((d) => isSameDay(d, date)),
   )
+  const urls = useImageUrls(dayEntries.flatMap((e) => e.image_paths ?? []))
+  const imageCount = keptPaths.length + newUris.length
 
   function reset() {
     setEditingId(null)
@@ -52,6 +63,8 @@ export default function DayPanel({
     setIcon(null)
     setRepeat('none')
     setDateType('solar')
+    setKeptPaths([])
+    setNewUris([])
     setError(null)
   }
 
@@ -63,7 +76,33 @@ export default function DayPanel({
     setIcon(e.icon)
     setRepeat(e.repeat)
     setDateType(e.date_type)
+    setKeptPaths(e.image_paths ?? [])
+    setNewUris([])
     setError(null)
+  }
+
+  async function pickImages() {
+    const room = MAX_ENTRY_IMAGES - imageCount
+    if (room <= 0) return
+    // 시스템 사진 선택기라 저장소 권한을 묻지 않는다
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsMultipleSelection: true,
+      selectionLimit: room,
+      quality: 1,
+    })
+    if (res.canceled) return
+    try {
+      const shrunk = await Promise.all(res.assets.slice(0, room).map(shrink))
+      setNewUris((prev) => [...prev, ...shrunk])
+    } catch (err) {
+      setError(errorMessage(err, '사진을 불러오지 못했어요'))
+    }
+  }
+
+  function removeImage(i: number) {
+    if (i < keptPaths.length) setKeptPaths((prev) => prev.filter((_, j) => j !== i))
+    else setNewUris((prev) => prev.filter((_, j) => j !== i - keptPaths.length))
   }
 
   // 음력은 매월 반복을 지원하지 않으므로 선택지를 되돌린다
@@ -87,9 +126,23 @@ export default function DayPanel({
   async function submit() {
     if (!groupId || !title.trim() || saving) return
 
+    const isLunar = dateType === 'lunar'
+    if (!editingId && isLunar && !lunar) {
+      setError('이 날짜는 음력으로 바꿀 수 없어요 (지원 범위 밖)')
+      return
+    }
+
     setSaving(true)
     setError(null)
+    const uploaded: string[] = []
     try {
+      // 하나씩 올린다 — 중간에 실패해도 어디까지 올라갔는지 알아야 치울 수 있다
+      for (const uri of newUris) {
+        const body = await (await fetch(uri)).arrayBuffer()
+        uploaded.push(await uploadEntryImage(groupId, userId, body))
+      }
+      const image_paths = [...keptPaths, ...uploaded]
+
       if (editingId) {
         // 날짜 관련 필드는 건드리지 않는다. 반복 일정의 기준일이 조용히 옮겨가면
         // 다른 달에 찍히던 날짜까지 바뀌어 사용자가 예상하지 못한 결과가 된다.
@@ -98,13 +151,9 @@ export default function DayPanel({
           memo: memo.trim() || null,
           icon,
           repeat,
+          image_paths,
         })
       } else {
-        const isLunar = dateType === 'lunar'
-        if (isLunar && !lunar) {
-          setError('이 날짜는 음력으로 바꿀 수 없어요 (지원 범위 밖)')
-          return
-        }
         await onAdd({
           group_id: groupId,
           author_id: userId,
@@ -117,10 +166,13 @@ export default function DayPanel({
           lunar_month: lunar && isLunar ? lunar.month : null,
           lunar_day: lunar && isLunar ? lunar.day : null,
           is_leap_month: lunar && isLunar ? lunar.isLeap : false,
+          image_paths,
         })
       }
       reset()
     } catch (err) {
+      // 일정이 저장되지 않았으니 방금 올린 사진은 아무도 안 가리킨다
+      void removeEntryImages(uploaded).catch(() => {})
       setError(errorMessage(err, '저장하지 못했어요'))
     } finally {
       setSaving(false)
@@ -223,6 +275,11 @@ export default function DayPanel({
                         {e.memo}
                       </Text>
                     )}
+                    {!!e.image_paths?.length && (
+                      <View style={{ marginTop: 8 }}>
+                        <Thumbs uris={e.image_paths.map((p) => urls[p])} />
+                      </View>
+                    )}
                     <Text style={{ marginTop: 5, fontSize: 11, color: c.faint }}>
                       {e.author?.name ?? '알 수 없음'}
                     </Text>
@@ -277,6 +334,34 @@ export default function DayPanel({
             maxLength={2000}
             style={[field, { minHeight: 62, textAlignVertical: 'top' }]}
           />
+
+          {imageCount > 0 && (
+            <View style={{ paddingTop: 6 }}>
+              <Thumbs
+                uris={[...keptPaths.map((p) => urls[p]), ...newUris]}
+                onRemove={removeImage}
+              />
+            </View>
+          )}
+          {imageCount < MAX_ENTRY_IMAGES && (
+            <Pressable
+              onPress={() => void pickImages()}
+              accessibilityRole="button"
+              style={({ pressed }) => ({
+                alignSelf: 'flex-start',
+                paddingVertical: 8,
+                paddingHorizontal: 14,
+                borderRadius: radius.pill,
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: c.shellLine,
+                backgroundColor: pressed ? c.surface : c.shell,
+              })}
+            >
+              <Text style={{ fontSize: 13, fontWeight: '500', color: c.muted }}>
+                + 사진 ({imageCount}/{MAX_ENTRY_IMAGES})
+              </Text>
+            </Pressable>
+          )}
 
           {/* 이모지 키보드 대신 프리셋 — 웹과 같이 4열 */}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
@@ -412,6 +497,20 @@ export default function DayPanel({
         )}
     </View>
   )
+}
+
+// 폰 사진은 한 장에 수 MB다. 긴 변 1280px JPEG로 줄이면 수백 KB — 무료 Storage 1GB를 오래 쓴다.
+// iOS의 HEIC도 여기서 JPEG가 된다 (버킷이 image/jpeg만 받는다).
+const MAX_SIDE = 1280
+
+async function shrink(a: ImagePicker.ImagePickerAsset): Promise<string> {
+  const ctx = ImageManipulator.manipulate(a.uri)
+  if (Math.max(a.width, a.height) > MAX_SIDE) {
+    ctx.resize(a.width >= a.height ? { width: MAX_SIDE } : { height: MAX_SIDE })
+  }
+  const img = await ctx.renderAsync()
+  const out = await img.saveAsync({ compress: 0.8, format: SaveFormat.JPEG })
+  return out.uri
 }
 
 function nextYearLabel(month: number, day: number, year: number): string {
