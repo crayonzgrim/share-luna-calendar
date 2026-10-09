@@ -31,8 +31,12 @@ pnpm start
 
 카카오 로그인은 시스템 인증 브라우저를 띄웠다가 `sharecalendar://auth-callback`으로 돌아온다.
 그 주소가 Supabase Dashboard > Authentication > URL Configuration > **Redirect URLs**에
-등록돼 있어야 한다. Expo Go로 개발할 때는 `exp://...` 주소도 함께 필요하다
-(`pnpm dlx uri-scheme list` 또는 `pnpm start` 로그에서 확인).
+등록돼 있어야 한다.
+
+**Expo Go에서는 로그인이 안 된다.** Expo Go는 `exp://<현재 IP>:<포트>/--/auth-callback`을
+쓰는데 IP가 바뀌는 주소라 허용 목록에 고정해둘 수 없다. 등록값과 어긋나면 Supabase가
+조용히 Site URL로 돌려보내므로, 증상은 "로그인 후 엉뚱한 주소로 떨어짐"으로 나타난다.
+로그인을 건드릴 때는 `pnpm android` / `pnpm ios`로 만든 dev build에서 확인할 것.
 
 ## 아직 안 한 것
 
