@@ -341,6 +341,34 @@
   color: var(--muted);
   white-space: pre-wrap;
 }
+/* 첨부 사진 — 목록과 작성 폼이 같이 쓴다 */
+.thumbs { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+.thumb {
+  position: relative;
+  display: block;
+  width: 4rem;
+  height: 4rem;
+  border: 1px solid var(--shell-line);
+  border-radius: 0.75rem;
+  background: var(--shell);
+}
+.thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; display: block; }
+.thumb__remove {
+  position: absolute;
+  top: -0.4rem;
+  right: -0.4rem;
+  width: 1.375rem;
+  height: 1.375rem;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: var(--fg);
+  color: var(--surface);
+  font-size: 0.6875rem;
+  cursor: pointer;
+}
+.photo-btn { align-self: flex-start; padding: 0.45rem 0.9rem; font-size: 0.8125rem; }
+
 .author { display: block; margin-top: 0.35rem; color: var(--faint); font-size: 0.6875rem; letter-spacing: 0.01em; }
 
 .row-actions { display: flex; gap: 0.15rem; flex-shrink: 0; }
