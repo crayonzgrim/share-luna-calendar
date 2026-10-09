@@ -11,7 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Clipboard from 'expo-clipboard'
 import { router } from 'expo-router'
-import { createGroup, fetchGroupMembers, updateGroupName } from '../../src/lib/api'
+import { createGroup, fetchGroupMembers, joinGroupByCode, updateGroupName } from '../../src/lib/api'
 import { errorMessage } from '../../src/lib/errors'
 import type { Profile } from '../../src/lib/types'
 import { Badge, ErrorText, NavBtn, SectionLabel, Shell } from '../components/ui'
@@ -21,13 +21,19 @@ import { radius, useColors } from '../lib/theme'
 import { DEMO, DEMO_USER_ID, demoMembers, useDemoGroups } from '../lib/demo'
 
 /**
- * 초대 링크는 웹 주소여야 한다 — 받는 사람에게 앱이 깔려 있으리란 보장이 없다.
- * 주소를 안 넣었으면 딥링크로 떨어지지만, 앱이 있는 사람끼리만 열린다.
+ * 웹 주소가 있으면 초대 링크를, 없으면 코드만 복사한다.
+ * sharecalendar:// 딥링크는 카카오톡이 링크로 안 잡아줘서 받는 사람이 누를 수가 없다 —
+ * 코드를 받아 아래 "초대 코드로 들어가기"에 붙여넣는 게 앱만 있을 때의 유일한 길이다.
  */
 const SITE_URL = process.env.EXPO_PUBLIC_SITE_URL?.replace(/\/$/, '')
 
-function inviteUrl(code: string): string {
-  return SITE_URL ? `${SITE_URL}/join/${code}` : `sharecalendar://join/${code}`
+function inviteText(code: string): string {
+  return SITE_URL ? `${SITE_URL}/join/${code}` : code
+}
+
+/** 링크째 붙여넣어도 받아준다 — `.../join/abc123` → `abc123` */
+function codeFrom(input: string): string {
+  return input.trim().split('/').pop() ?? ''
 }
 
 /** 손가락이 닿는 최소 크기(iOS HIG 44pt). 버튼은 전부 이 높이를 넘긴다. */
@@ -52,6 +58,10 @@ export default function GroupsScreen() {
   const [copied, setCopied] = useState<string | null>(null)
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
+  const [joinCode, setJoinCode] = useState('')
+  const [joining, setJoining] = useState(false)
+  const [joinError, setJoinError] = useState<string | null>(null)
+  const [joined, setJoined] = useState(false)
   const nameInput = useRef<TextInput>(null)
 
   const myId = DEMO ? DEMO_USER_ID : user?.id
@@ -111,8 +121,26 @@ export default function GroupsScreen() {
     }
   }
 
+  async function join() {
+    const code = codeFrom(joinCode)
+    if (!code || joining) return
+    setJoining(true)
+    try {
+      await joinGroupByCode(code)
+      await reload()
+      setJoinCode('')
+      setJoinError(null)
+      setJoined(true)
+      setTimeout(() => setJoined(false), 2500)
+    } catch (err) {
+      setJoinError(errorMessage(err, '그룹에 들어가지 못했어요'))
+    } finally {
+      setJoining(false)
+    }
+  }
+
   async function copyInvite(code: string) {
-    await Clipboard.setStringAsync(inviteUrl(code))
+    await Clipboard.setStringAsync(inviteText(code))
     setCopied(code)
     setTimeout(() => setCopied(null), 2000)
   }
@@ -152,7 +180,7 @@ export default function GroupsScreen() {
           함께 보는 사람들
         </Text>
         <Text style={{ fontSize: 14, lineHeight: 21, color: c.muted, marginTop: 6 }}>
-          그룹을 만들고 초대 링크를 보내면 같은 달력을 함께 봐요.
+          그룹을 만들고 초대 코드를 보내면 같은 달력을 함께 봐요.
         </Text>
 
         <SectionLabel>내 그룹</SectionLabel>
@@ -286,10 +314,10 @@ export default function GroupsScreen() {
                       </Text>
                       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
                         <CardBtn
-                          label={done ? '✓ 링크 복사됨' : '초대 링크 복사'}
+                          label={done ? '✓ 복사됨' : SITE_URL ? '초대 링크 복사' : '초대 코드 복사'}
                           on={done}
                           onPress={() => void copyInvite(g.invite_code)}
-                          accessibilityLabel={`${g.name} 초대 링크 복사`}
+                          accessibilityLabel={`${g.name} ${SITE_URL ? '초대 링크' : '초대 코드'} 복사`}
                         />
                         {g.created_by === myId && (
                           <CardBtn
@@ -311,6 +339,49 @@ export default function GroupsScreen() {
           })}
         </View>
 
+        <SectionLabel>초대 코드로 들어가기</SectionLabel>
+
+        <Shell>
+          <View style={{ padding: 16, gap: 9 }}>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: c.muted }}>초대 코드</Text>
+            <TextInput
+              value={joinCode}
+              onChangeText={setJoinCode}
+              placeholder="받은 코드를 붙여넣어 주세요"
+              placeholderTextColor={c.faint}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="done"
+              onSubmitEditing={() => void join()}
+              style={field}
+            />
+            <Pressable
+              onPress={() => void join()}
+              disabled={!joinCode.trim() || joining}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !joinCode.trim() || joining, busy: joining }}
+              style={({ pressed }) => ({
+                minHeight: TAP,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: radius.pill,
+                backgroundColor: c.accentStrong,
+                opacity: !joinCode.trim() || joining ? 0.35 : pressed ? 0.85 : 1,
+              })}
+            >
+              {joining ? (
+                <ActivityIndicator color={c.accentFg} />
+              ) : (
+                <Text style={{ fontSize: 14, fontWeight: '600', color: c.accentFg }}>들어가기</Text>
+              )}
+            </Pressable>
+            {joined && (
+              <Text style={{ fontSize: 13, color: c.accentStrong }}>그룹에 들어갔어요. 위 목록에서 확인하세요</Text>
+            )}
+            {joinError && <ErrorText>{joinError}</ErrorText>}
+          </View>
+        </Shell>
+
         <SectionLabel>새 그룹 만들기</SectionLabel>
 
         <Shell>
@@ -328,7 +399,7 @@ export default function GroupsScreen() {
               style={field}
             />
             <Text style={{ fontSize: 12, lineHeight: 17, color: c.faint }}>
-              만든 사람이 이름을 바꿀 수 있어요. 만든 뒤 초대 링크를 보내면 돼요.
+              만든 사람이 이름을 바꿀 수 있어요. 만든 뒤 초대 코드를 보내면 돼요.
             </Text>
             <Pressable
               onPress={() => void submit()}
