@@ -76,7 +76,7 @@ export async function createEntry(entry: NewEntry): Promise<EntryWithAuthor> {
 }
 
 /** 수정 가능한 항목. 날짜 관련 필드는 뺀다 — 날짜를 바꾸려면 지우고 다시 만든다. */
-export type EntryPatch = Pick<Entry, 'title' | 'memo' | 'icon' | 'repeat'>
+export type EntryPatch = Pick<Entry, 'title' | 'memo' | 'icon' | 'repeat' | 'image_paths'>
 
 export async function updateEntry(id: string, patch: EntryPatch): Promise<EntryWithAuthor> {
   const { data, error } = await supabase
@@ -91,5 +91,46 @@ export async function updateEntry(id: string, patch: EntryPatch): Promise<EntryW
 
 export async function deleteEntry(id: string): Promise<void> {
   const { error } = await supabase.from('entries').delete().eq('id', id)
+  if (error) throw error
+}
+
+// ---------- 첨부 사진 ----------
+// 비공개 버킷이다. 경로의 앞 두 칸(그룹/올린 사람)으로 Storage RLS가 권한을 가른다
+// — supabase/migrations/006-entry-images.sql
+
+const IMAGE_BUCKET = 'entry-images'
+export const MAX_ENTRY_IMAGES = 5
+
+/** 호출 쪽에서 JPEG로 줄여서 넘긴다. 돌려받은 경로를 일정의 image_paths에 넣는다. */
+export async function uploadEntryImage(
+  groupId: string,
+  userId: string,
+  body: ArrayBuffer | Blob,
+): Promise<string> {
+  // crypto.randomUUID는 RN(Hermes)에 없을 수 있다. 같은 사람이 같은 밀리초에 겹칠 일은 없다.
+  const name = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+  const path = `${groupId}/${userId}/${name}.jpg`
+  const { error } = await supabase.storage
+    .from(IMAGE_BUCKET)
+    .upload(path, body, { contentType: 'image/jpeg' })
+  if (error) throw error
+  return path
+}
+
+/** 경로 → 1시간짜리 서명 URL. 실패한 경로는 결과에서 빠진다. */
+export async function signImageUrls(paths: string[]): Promise<Record<string, string>> {
+  if (paths.length === 0) return {}
+  const { data, error } = await supabase.storage
+    .from(IMAGE_BUCKET)
+    .createSignedUrls(paths, 60 * 60)
+  if (error) throw error
+  const urls: Record<string, string> = {}
+  for (const d of data) if (d.path && d.signedUrl) urls[d.path] = d.signedUrl
+  return urls
+}
+
+export async function removeEntryImages(paths: string[]): Promise<void> {
+  if (paths.length === 0) return
+  const { error } = await supabase.storage.from(IMAGE_BUCKET).remove(paths)
   if (error) throw error
 }

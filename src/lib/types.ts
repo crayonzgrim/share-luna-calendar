@@ -27,6 +27,8 @@ export type Entry = {
   lunar_month: number | null
   lunar_day: number | null
   is_leap_month: boolean
+  /** 첨부 사진의 Storage 경로 (최대 5장). 화면에 띄울 땐 signImageUrls로 서명 URL을 받는다 */
+  image_paths?: string[]
   created_at: string
 }
 
