@@ -1,7 +1,11 @@
+# pnpm 11부터 pnpm 전용 설정은 .npmrc가 아니라 이 파일에서 읽는다.
+# .npmrc에 적어두면 조용히 무시된다 — 그 상태로 깔면 Expo 오토링킹이
+# node_modules 최상위에 없는 패키지(@react-native-masked-view 등)를 못 찾아 빌드가 깨진다.
+
 # Metro/Expo 오토링킹은 심링크 트리를 제대로 못 따라간다 — 평평하게 깐다.
-node-linker=hoisted
+nodeLinker: hoisted
 
 # expo-router 57.0.13이 react-dom@19.2.8을 끌고 오는데 그 peer는 react ^19.2.8이다.
 # 정작 expo SDK 57은 react 19.2.3을 고정한다 — 업스트림 불일치라 설치가 막힌다.
 # react-dom은 웹 출력에만 쓰이고 우리는 네이티브만 빌드하므로 그냥 통과시킨다.
-strict-peer-dependencies=false
+strictPeerDependencies: false
