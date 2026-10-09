@@ -30,9 +30,9 @@ export function useAuth() {
  * Redirect URLs에 등록돼 있어야 한다.
  */
 export async function signInWithKakao(): Promise<void> {
-  const redirectTo = Linking.createURL('/auth-callback')
-  // ponytail: 임시 — Supabase Redirect URLs에 등록한 값과 같은지 눈으로 확인하려고 찍는다
-  console.log('[auth] redirectTo =', redirectTo)
+  // 앞 슬래시를 붙이면 sharecalendar:///auth-callback(슬래시 3개)이 나온다.
+  // Supabase는 등록된 문자열과 정확히 맞아야 통과시키므로 그대로면 Site URL로 떨어진다.
+  const redirectTo = Linking.createURL('auth-callback')
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'kakao',
