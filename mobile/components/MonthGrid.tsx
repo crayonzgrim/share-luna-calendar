@@ -6,6 +6,7 @@ import { solarToLunar } from '../../src/lib/lunar'
 import { expandMonth } from '../../src/lib/recurrence'
 import type { EntryWithAuthor } from '../../src/lib/types'
 import { eventColor, radius, useColors } from '../lib/theme'
+import { byTime } from '../lib/time'
 import { Shell } from './ui'
 
 type Props = {
@@ -40,6 +41,8 @@ export default function MonthGrid({ year, month, entries, selected, onSelect }: 
     if (list) list.push(entry)
     else byDate.set(key, [entry])
   }
+  // 한 칸 안에서는 종일 먼저, 그다음 이른 시각부터
+  for (const list of byDate.values()) list.sort(byTime)
 
   return (
     <Shell fill>

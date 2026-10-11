@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native'
 import type { StyleProp, TextStyle, ViewStyle } from 'react-native'
 import { BEZEL, lift, radius, useColors } from '../lib/theme'
 
@@ -124,6 +124,24 @@ export function NavBtn({
 }
 
 /** 웹의 .badge / .badge--lunar */
+/**
+ * 작성자 프로필 사진. 사진이 없으면 이름 첫 글자를 띄운다.
+ * 카카오 프로필 주소가 http://로 오는 경우가 있는데 안드로이드 릴리스 빌드는 평문 http를 막는다 —
+ * 카카오 CDN은 https도 받으므로 바꿔서 쓴다.
+ */
+export function Avatar({ name, url, size = 18 }: { name?: string; url?: string | null; size?: number }) {
+  const c = useColors()
+  const box = { width: size, height: size, borderRadius: radius.pill, backgroundColor: c.shellLine }
+  if (url) {
+    return <Image source={{ uri: url.replace(/^http:\/\//, 'https://') }} style={box} accessibilityIgnoresInvertColors />
+  }
+  return (
+    <View style={[box, { alignItems: 'center', justifyContent: 'center' }]}>
+      <Text style={{ fontSize: size * 0.55, fontWeight: '600', color: c.muted }}>{name?.[0] ?? '?'}</Text>
+    </View>
+  )
+}
+
 export function Badge({ label, tone }: { label: string; tone?: 'lunar' }) {
   const c = useColors()
   const isLunar = tone === 'lunar'

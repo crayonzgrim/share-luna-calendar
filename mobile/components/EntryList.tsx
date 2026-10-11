@@ -6,6 +6,8 @@ import { solarToLunar } from '../../src/lib/lunar'
 import { occurrencesInYear, parseISODate } from '../../src/lib/recurrence'
 import type { EntryWithAuthor } from '../../src/lib/types'
 import { eventColor, lift, radius, useColors } from '../lib/theme'
+import { byTime, formatTime } from '../lib/time'
+import { repeatLabel } from '../lib/repeat'
 import { Badge, NavBtn } from './ui'
 
 type Props = {
@@ -186,6 +188,11 @@ export default function EntryList({ entries, onJump }: Props) {
                 <Text numberOfLines={1} style={{ fontSize: 10.5, color: c.muted }}>
                   {date ? [WEEKDAY_LABELS[date.getDay()], note].filter(Boolean).join(' · ') : note}
                 </Text>
+                {entry.event_time && (
+                  <Text style={{ fontSize: 10.5, fontWeight: '600', color: c.accentStrong, marginTop: 1 }}>
+                    {formatTime(entry.event_time)}
+                  </Text>
+                )}
               </View>
 
               <View style={{ flex: 1, minWidth: 0 }}>
@@ -207,9 +214,9 @@ export default function EntryList({ entries, onJump }: Props) {
                   {entry.repeat !== 'none' && (
                     <Badge
                       label={
-                        entry.repeat === 'yearly'
-                          ? '매년'
-                          : `매월 ${parseISODate(entry.event_date).getDate()}일`
+                        entry.repeat === 'monthly' && (entry.repeat_interval ?? 1) === 1
+                          ? `매월 ${parseISODate(entry.event_date).getDate()}일`
+                          : repeatLabel(entry.repeat, entry.repeat_interval)
                       }
                     />
                   )}
@@ -270,7 +277,8 @@ function TypeRow({ label, on, onPress }: { label: string; on: boolean; onPress: 
 
 /** 그 해 날짜순. 날짜가 없는(매월) 항목은 맨 뒤. */
 function byDate(a: Row, b: Row): number {
-  if (a.date && b.date) return a.date.getTime() - b.date.getTime()
+  // 같은 날이면 종일 먼저, 그다음 이른 시각부터
+  if (a.date && b.date) return a.date.getTime() - b.date.getTime() || byTime(a.entry, b.entry)
   if (a.date) return -1
   if (b.date) return 1
   return a.entry.title.localeCompare(b.entry.title, 'ko')

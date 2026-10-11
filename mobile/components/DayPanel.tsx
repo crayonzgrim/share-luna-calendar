@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Alert, Platform, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker'
 import * as ImagePicker from 'expo-image-picker'
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator'
 import { MAX_ENTRY_IMAGES, removeEntryImages, uploadEntryImage } from '../../src/lib/api'
@@ -13,9 +14,12 @@ import type { DateType, RepeatRule } from '../../src/lib/recurrence'
 import type { EntryWithAuthor } from '../../src/lib/types'
 import { useImageUrls } from '../../src/lib/useImageUrls'
 import { eventColor, radius, useColors } from '../lib/theme'
-import { Badge, ErrorText } from './ui'
+import { byTime, formatTime } from '../lib/time'
+import { REPEAT_UNITS, repeatLabel } from '../lib/repeat'
+import { Avatar, Badge, ErrorText } from './ui'
 import Segmented from './Segmented'
 import Thumbs from './Thumbs'
+import TimeWheel from './TimeWheel'
 
 type Props = {
   date: Date
@@ -25,10 +29,14 @@ type Props = {
   onAdd: (e: NewEntry) => Promise<void>
   onEdit: (id: string, patch: EntryPatch) => Promise<void>
   onDelete: (id: string) => Promise<void>
+  /** 다른 날짜로 저장했을 때 — 달력을 그 날로 옮겨 방금 저장한 일정이 보이게 한다 */
+  onMoved: (d: Date) => void
+  /** 추가·수정 폼을 열 때 — 시트를 펼쳐 폼이 다 보이게 한다 */
+  onFormOpen?: () => void
 }
 
 export default function DayPanel({
-  date, groupId, userId, entries, onAdd, onEdit, onDelete,
+  date, groupId, userId, entries, onAdd, onEdit, onDelete, onMoved, onFormOpen,
 }: Props) {
   const c = useColors()
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -40,6 +48,13 @@ export default function DayPanel({
   const [icon, setIcon] = useState<string | null>(null)
   const [dateType, setDateType] = useState<DateType>('solar')
   const [repeat, setRepeat] = useState<RepeatRule>('none')
+  const [repeatN, setRepeatN] = useState(1)
+  // 반복 줄을 누르면 그 아래로 고르는 목록이 펼쳐진다
+  const [repeatOpen, setRepeatOpen] = useState(false)
+  // 저장할 날짜. 처음엔 지금 보고 있는 날이고, 폼에서 바꿀 수 있다.
+  const [day, setDay] = useState(date)
+  // 'HH:MM'. null이면 종일
+  const [time, setTime] = useState<string | null>(null)
   // 이미 올라간 사진(경로)과 이번에 고른 사진(기기 안 파일)을 따로 든다.
   // 고른 사진은 저장을 누를 때 올린다 — 취소하면 Storage에 쓰레기가 남지 않는다.
   const [keptPaths, setKeptPaths] = useState<string[]>([])
@@ -48,10 +63,11 @@ export default function DayPanel({
   const [error, setError] = useState<string | null>(null)
 
   const lunar = solarToLunar(date)
+  const dayLunar = solarToLunar(day)
 
   const dayEntries = entries.filter((e) =>
     occurrencesInMonth(e, date.getFullYear(), date.getMonth() + 1).some((d) => isSameDay(d, date)),
-  )
+  ).sort(byTime)
   const urls = useImageUrls(dayEntries.flatMap((e) => e.image_paths ?? []))
   const imageCount = keptPaths.length + newUris.length
 
@@ -62,7 +78,11 @@ export default function DayPanel({
     setMemo('')
     setIcon(null)
     setRepeat('none')
+    setRepeatN(1)
+    setRepeatOpen(false)
     setDateType('solar')
+    setDay(date)
+    setTime(null)
     setKeptPaths([])
     setNewUris([])
     setError(null)
@@ -71,11 +91,17 @@ export default function DayPanel({
   function startEdit(e: EntryWithAuthor) {
     setEditingId(e.id)
     setFormOpen(true)
+    onFormOpen?.()
     setTitle(e.title)
     setMemo(e.memo ?? '')
     setIcon(e.icon)
     setRepeat(e.repeat)
+    setRepeatN(e.repeat_interval ?? 1)
+    setRepeatOpen(false)
     setDateType(e.date_type)
+    // 반복 일정은 연도(매월이면 달까지)를 안 보므로, 원래 기준일 대신 지금 보고 있는 날에서 시작한다
+    setDay(date)
+    setTime(e.event_time?.slice(0, 5) ?? null)
     setKeptPaths(e.image_paths ?? [])
     setNewUris([])
     setError(null)
@@ -108,7 +134,16 @@ export default function DayPanel({
   // 음력은 매월 반복을 지원하지 않으므로 선택지를 되돌린다
   function changeDateType(next: DateType) {
     setDateType(next)
-    if (next === 'lunar' && repeat === 'monthly') setRepeat('yearly')
+    // 음력은 해마다만 된다 — 매일·매주·매월은 양력 날짜로 세는 게 맞다
+    if (next === 'lunar' && repeat !== 'none' && repeat !== 'yearly') setRepeat('yearly')
+  }
+
+  function pickDay() {
+    DateTimePickerAndroid.open({
+      value: day,
+      mode: 'date',
+      onChange: (ev, d) => ev.type === 'set' && d && setDay(d),
+    })
   }
 
   // 웹은 확인 없이 지운다. 손가락은 마우스보다 굵어 잘못 눌리기 쉬워 한 번 묻는다.
@@ -127,7 +162,8 @@ export default function DayPanel({
     if (!groupId || !title.trim() || saving) return
 
     const isLunar = dateType === 'lunar'
-    if (!editingId && isLunar && !lunar) {
+    const moved = !isSameDay(day, date)
+    if (isLunar && !dayLunar && (!editingId || moved)) {
       setError('이 날짜는 음력으로 바꿀 수 없어요 (지원 범위 밖)')
       return
     }
@@ -144,14 +180,21 @@ export default function DayPanel({
       const image_paths = [...keptPaths, ...uploaded]
 
       if (editingId) {
-        // 날짜 관련 필드는 건드리지 않는다. 반복 일정의 기준일이 조용히 옮겨가면
-        // 다른 달에 찍히던 날짜까지 바뀌어 사용자가 예상하지 못한 결과가 된다.
+        // 날짜는 바꿨을 때만 보낸다. 안 바꿨는데 보내면 반복 일정의 기준일이 지금 보는 날로 덮인다.
         await onEdit(editingId, {
           title: title.trim(),
           memo: memo.trim() || null,
           icon,
           repeat,
+          repeat_interval: repeat === 'none' ? 1 : repeatN,
           image_paths,
+          event_time: time,
+          ...(moved && {
+            event_date: toISODate(day),
+            lunar_month: dayLunar && isLunar ? dayLunar.month : null,
+            lunar_day: dayLunar && isLunar ? dayLunar.day : null,
+            is_leap_month: dayLunar && isLunar ? dayLunar.isLeap : false,
+          }),
         })
       } else {
         await onAdd({
@@ -162,14 +205,17 @@ export default function DayPanel({
           icon,
           date_type: dateType,
           repeat,
-          event_date: toISODate(date),
-          lunar_month: lunar && isLunar ? lunar.month : null,
-          lunar_day: lunar && isLunar ? lunar.day : null,
-          is_leap_month: lunar && isLunar ? lunar.isLeap : false,
+          repeat_interval: repeat === 'none' ? 1 : repeatN,
+          event_date: toISODate(day),
+          lunar_month: dayLunar && isLunar ? dayLunar.month : null,
+          lunar_day: dayLunar && isLunar ? dayLunar.day : null,
+          is_leap_month: dayLunar && isLunar ? dayLunar.isLeap : false,
+          event_time: time,
           image_paths,
         })
       }
       reset()
+      if (moved) onMoved(day)
     } catch (err) {
       // 일정이 저장되지 않았으니 방금 올린 사진은 아무도 안 가리킨다
       void removeEntryImages(uploaded).catch(() => {})
@@ -190,12 +236,20 @@ export default function DayPanel({
     fontSize: 14,
   } as const
 
-  const adding = formOpen && !editingId
+  // 폼이 열려 있으면 고른 날짜를, 아니면 달력에서 누른 날을 보여준다
+  const shown = formOpen ? day : date
+  const shownLunar = formOpen ? dayLunar : lunar
   const canSubmit = !!title.trim() && !saving
 
   return (
     <View style={{ padding: 18 }}>
-        <View
+        {/* 폼이 열려 있으면 맨 위 날짜가 곧 저장할 날짜다. 눌러서 바꾼다
+            (안드로이드는 시스템 달력 창, iOS는 그 자리의 compact 피커) */}
+        <Pressable
+          onPress={formOpen && Platform.OS !== 'ios' ? pickDay : undefined}
+          disabled={!formOpen || Platform.OS === 'ios'}
+          accessibilityRole={formOpen ? 'button' : 'header'}
+          accessibilityLabel={formOpen ? '날짜 바꾸기' : undefined}
           style={{
             flexDirection: 'row',
             alignItems: 'baseline',
@@ -206,18 +260,23 @@ export default function DayPanel({
             borderBottomColor: c.line,
           }}
         >
-          <Text style={{ fontSize: 22, fontWeight: '600', color: c.fg, letterSpacing: -0.8 }}>
-            {date.getMonth() + 1}월 {date.getDate()}일
-          </Text>
-          {lunar && (
-            <Text style={{ fontSize: 12, color: c.muted }}>
-              음력 {lunar.month}.{lunar.day}
+          {formOpen && Platform.OS === 'ios' ? (
+            <DateTimePicker value={day} mode="date" display="compact" onChange={(_, d) => d && setDay(d)} />
+          ) : (
+            <Text style={{ fontSize: 22, fontWeight: '600', color: c.fg, letterSpacing: -0.8 }}>
+              {shown.getMonth() + 1}월 {shown.getDate()}일
+              {formOpen && <Text style={{ fontSize: 15, color: c.accentStrong }}> ▾</Text>}
             </Text>
           )}
-        </View>
+          {shownLunar && (
+            <Text style={{ fontSize: 12, color: c.muted }}>
+              음력 {shownLunar.month}.{shownLunar.day}
+            </Text>
+          )}
+        </Pressable>
 
-        {/* 추가 중에는 그 날 목록을 감춘다 — 새로 쓸 내용에만 집중하게 */}
-        {!adding && (
+        {/* 추가·수정 중에는 그 날 목록을 감춘다 — 편집 화면에는 입력칸만 둔다 */}
+        {!formOpen && (
           <View style={{ marginBottom: 18 }}>
             {dayEntries.length === 0 && (
               <Text style={{ color: c.faint, fontSize: 13, textAlign: 'center', paddingVertical: 18 }}>
@@ -227,13 +286,11 @@ export default function DayPanel({
 
             {dayEntries.map((e, i) => {
               const ico = findIcon(e.icon)
-              const editing = editingId === e.id
-              // 폼이 열려 있는 동안 다른 행은 잠근다 — 누르면 입력하던 내용이 조용히 날아간다
-              const tappable = e.author_id === userId && (!formOpen || editing)
+              const tappable = e.author_id === userId
               return (
                 <Pressable
                   key={e.id}
-                  onPress={() => (editing ? reset() : startEdit(e))}
+                  onPress={() => startEdit(e)}
                   disabled={!tappable}
                   accessibilityRole={tappable ? 'button' : undefined}
                   accessibilityLabel={tappable ? `${e.title} 수정하기` : undefined}
@@ -243,10 +300,8 @@ export default function DayPanel({
                     alignItems: 'flex-start',
                     gap: 10,
                     paddingVertical: 11,
-                    paddingHorizontal: editing ? 10 : 0,
-                    marginHorizontal: editing ? -10 : 0,
-                    borderRadius: editing || pressed ? 12 : 0,
-                    backgroundColor: editing ? c.accentSoft : pressed ? c.shell : 'transparent',
+                    borderRadius: pressed ? 12 : 0,
+                    backgroundColor: pressed ? c.shell : 'transparent',
                     borderBottomWidth: i === dayEntries.length - 1 ? 0 : StyleSheet.hairlineWidth,
                     borderBottomColor: c.line,
                   })}
@@ -263,12 +318,17 @@ export default function DayPanel({
                           backgroundColor: eventColor(e.icon, c),
                         }}
                       />
+                      {e.event_time && (
+                        <Text style={{ fontSize: 13, fontWeight: '600', color: c.accentStrong, marginRight: 6 }}>
+                          {formatTime(e.event_time)}
+                        </Text>
+                      )}
                       {ico && <Text style={{ fontSize: 15, marginRight: 5 }}>{ico.emoji}</Text>}
                       <Text style={{ fontSize: 15, fontWeight: '600', color: c.fg, letterSpacing: -0.3 }}>
                         {e.title}
                       </Text>
                       {e.date_type === 'lunar' && <Badge label="음력" tone="lunar" />}
-                      {e.repeat !== 'none' && <Badge label={e.repeat === 'yearly' ? '매년' : '매월'} />}
+                      {e.repeat !== 'none' && <Badge label={repeatLabel(e.repeat, e.repeat_interval)} />}
                     </View>
                     {e.memo && (
                       <Text style={{ marginTop: 5, fontSize: 13, lineHeight: 20, color: c.muted }}>
@@ -280,13 +340,15 @@ export default function DayPanel({
                         <Thumbs uris={e.image_paths.map((p) => urls[p])} />
                       </View>
                     )}
-                    <Text style={{ marginTop: 5, fontSize: 11, color: c.faint }}>
-                      {e.author?.name ?? '알 수 없음'}
-                    </Text>
+                    {/* 공유 달력이라 누가 적었는지가 중요하다 — 사진과 이름을 오른쪽 끝에 */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end', gap: 5, marginTop: 6 }}>
+                      <Avatar name={e.author?.name} url={e.author?.avatar_url} />
+                      <Text style={{ fontSize: 11, color: c.muted }}>{e.author?.name ?? '알 수 없음'}</Text>
+                    </View>
                   </View>
 
-                  {/* 누를 수 있다는 표시 — 남의 일정이나 폼이 열린 동안에는 없다 */}
-                  {tappable && !editing && (
+                  {/* 누를 수 있다는 표시 — 남의 일정에는 없다 */}
+                  {tappable && (
                     <Text style={{ fontSize: 15, color: c.faint, marginTop: 2 }}>›</Text>
                   )}
                 </Pressable>
@@ -297,7 +359,10 @@ export default function DayPanel({
 
         {!formOpen ? (
           <Pressable
-            onPress={() => setFormOpen(true)}
+            onPress={() => {
+              setFormOpen(true)
+              onFormOpen?.()
+            }}
             style={({ pressed }) => ({
               alignItems: 'center',
               paddingVertical: 12,
@@ -311,10 +376,84 @@ export default function DayPanel({
           </Pressable>
         ) : (
         <View style={{ gap: 9 }}>
-          {editingId && (
-            <Text style={{ fontSize: 12, fontWeight: '500', color: c.accentStrong }}>
-              수정 중 — 날짜는 그대로 두고 내용만 바꿉니다
+          {/* 시간 — 삼성 캘린더처럼 '하루 종일' 스위치를 끄면 그 자리에 시간 바퀴가 펼쳐진다 */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 }}>
+            <Text style={{ fontSize: 14, fontWeight: '500', color: c.fg }}>하루 종일</Text>
+            <Switch
+              value={time === null}
+              onValueChange={(allDay) => setTime(allDay ? null : '09:00')}
+              trackColor={{ false: c.shellLine, true: c.accent }}
+              thumbColor={c.surface}
+              accessibilityLabel="하루 종일"
+            />
+          </View>
+          {time !== null && <TimeWheel value={time} onChange={setTime} />}
+
+          {/* 반복 — 줄을 누르면 고르는 목록이 펼쳐진다. 고른 줄에는 n을 바꾸는 −/+가 붙는다 */}
+          <Pressable
+            onPress={() => setRepeatOpen((o) => !o)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: repeatOpen }}
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 }}
+          >
+            <Text style={{ fontSize: 14, fontWeight: '500', color: c.fg }}>반복</Text>
+            <Text style={{ fontSize: 14, fontWeight: '500', color: repeat === 'none' ? c.muted : c.accentStrong }}>
+              {repeatLabel(repeat, repeatN)} {repeatOpen ? '▴' : '▾'}
             </Text>
+          </Pressable>
+          {repeatOpen && (
+            <View style={{ borderRadius: radius.chip, backgroundColor: c.shell, paddingVertical: 4 }}>
+              {[
+                { rule: 'none' as const, unit: '' },
+                // 음력은 해마다만 — 나머지는 양력 날짜로 센다
+                ...REPEAT_UNITS.filter((u) => dateType === 'solar' || u.rule === 'yearly'),
+              ].map((u) => {
+                const on = repeat === u.rule
+                return (
+                  <Pressable
+                    key={u.rule}
+                    onPress={() => {
+                      if (on) return
+                      setRepeat(u.rule)
+                      // 단위를 바꾸면 n은 1부터 — 3일마다에서 개월로 옮겨 '3개월마다'가 되면 뜻밖이다
+                      setRepeatN(1)
+                      if (u.rule === 'none') setRepeatOpen(false)
+                    }}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: on }}
+                    style={{ flexDirection: 'row', alignItems: 'center', minHeight: 44, paddingHorizontal: 12, gap: 10 }}
+                  >
+                    <View
+                      style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: radius.pill,
+                        borderWidth: on ? 5 : 1.5,
+                        borderColor: on ? c.accentStrong : c.faint,
+                      }}
+                    />
+                    {u.rule === 'none' ? (
+                      <Text style={{ fontSize: 14, color: c.fg }}>반복 안 함</Text>
+                    ) : (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        {on ? (
+                          <>
+                            <Stepper label="−" onPress={() => setRepeatN((n) => Math.max(1, n - 1))} />
+                            <Text style={{ minWidth: 22, textAlign: 'center', fontSize: 15, fontWeight: '600', color: c.accentStrong }}>
+                              {repeatN}
+                            </Text>
+                            <Stepper label="+" onPress={() => setRepeatN((n) => Math.min(99, n + 1))} />
+                          </>
+                        ) : (
+                          <Text style={{ minWidth: 22, textAlign: 'center', fontSize: 14, color: c.muted }}>1</Text>
+                        )}
+                        <Text style={{ fontSize: 14, color: c.fg }}>{u.unit}마다</Text>
+                      </View>
+                    )}
+                  </Pressable>
+                )
+              })}
+            </View>
           )}
 
           <TextInput
@@ -335,33 +474,14 @@ export default function DayPanel({
             style={[field, { minHeight: 62, textAlignVertical: 'top' }]}
           />
 
-          {imageCount > 0 && (
-            <View style={{ paddingTop: 6 }}>
-              <Thumbs
-                uris={[...keptPaths.map((p) => urls[p]), ...newUris]}
-                onRemove={removeImage}
-              />
-            </View>
-          )}
-          {imageCount < MAX_ENTRY_IMAGES && (
-            <Pressable
-              onPress={() => void pickImages()}
-              accessibilityRole="button"
-              style={({ pressed }) => ({
-                alignSelf: 'flex-start',
-                paddingVertical: 8,
-                paddingHorizontal: 14,
-                borderRadius: radius.pill,
-                borderWidth: StyleSheet.hairlineWidth,
-                borderColor: c.shellLine,
-                backgroundColor: pressed ? c.surface : c.shell,
-              })}
-            >
-              <Text style={{ fontSize: 13, fontWeight: '500', color: c.muted }}>
-                + 사진 ({imageCount}/{MAX_ENTRY_IMAGES})
-              </Text>
-            </Pressable>
-          )}
+          {/* 사진 칸 끝의 + 칸으로 추가한다. 5장이 차면 + 칸이 사라진다 */}
+          <View style={{ paddingTop: 6 }}>
+            <Thumbs
+              uris={[...keptPaths.map((p) => urls[p]), ...newUris]}
+              onRemove={removeImage}
+              onAdd={imageCount < MAX_ENTRY_IMAGES ? () => void pickImages() : undefined}
+            />
+          </View>
 
           {/* 이모지 키보드 대신 프리셋 — 웹과 같이 4열 */}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
@@ -399,35 +519,20 @@ export default function DayPanel({
           </View>
 
           <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-            <Segmented
-              value={dateType}
-              // 날짜 종류를 바꾸면 저장된 음/양력 기준이 흔들린다. 수정 중엔 잠근다.
-              disabled={!!editingId}
-              onChange={(v) => changeDateType(v)}
-              options={[
-                { value: 'solar', label: '양력' },
-                { value: 'lunar', label: '음력' },
-              ]}
-            />
-            <Segmented
-              value={repeat}
-              onChange={(v) => setRepeat(v)}
-              options={
-                dateType === 'solar'
-                  ? [
-                      { value: 'none', label: '반복 없음' },
-                      { value: 'yearly', label: '매년' },
-                      { value: 'monthly', label: '매월' },
-                    ]
-                  : [
-                      { value: 'none', label: '반복 없음' },
-                      { value: 'yearly', label: '매년' },
-                    ]
-              }
-            />
+            {/* 날짜 종류를 바꾸면 저장된 음/양력 기준이 흔들린다. 수정 중엔 아예 숨긴다 */}
+            {!editingId && (
+              <Segmented
+                value={dateType}
+                onChange={(v) => changeDateType(v)}
+                options={[
+                  { value: 'solar', label: '양력' },
+                  { value: 'lunar', label: '음력' },
+                ]}
+              />
+            )}
           </View>
 
-          {!editingId && dateType === 'lunar' && repeat === 'yearly' && lunar && (
+          {!editingId && dateType === 'lunar' && repeat === 'yearly' && dayLunar && (
             <Text
               style={{
                 fontSize: 12,
@@ -439,8 +544,8 @@ export default function DayPanel({
                 paddingHorizontal: 11,
               }}
             >
-              매년 음력 {lunar.month}월 {lunar.day}일에 표시돼요.{' '}
-              내년엔 {nextYearLabel(lunar.month, lunar.day, date.getFullYear() + 1)}.
+              매년 음력 {dayLunar.month}월 {dayLunar.day}일에 표시돼요.{' '}
+              내년엔 {nextYearLabel(dayLunar.month, dayLunar.day, day.getFullYear() + 1)}.
             </Text>
           )}
 
@@ -516,4 +621,29 @@ async function shrink(a: ImagePicker.ImagePickerAsset): Promise<string> {
 function nextYearLabel(month: number, day: number, year: number): string {
   const d = lunarToSolarClamped(year, month, day)
   return d ? `양력 ${d.getMonth() + 1}월 ${d.getDate()}일` : '계산할 수 없어요'
+}
+
+/** 반복 간격 −/+ 버튼. 보이는 원은 28이지만 hitSlop으로 44를 채운다. */
+function Stepper({ label, onPress }: { label: string; onPress: () => void }) {
+  const c = useColors()
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel={label === '+' ? '간격 늘리기' : '간격 줄이기'}
+      style={({ pressed }) => ({
+        width: 28,
+        height: 28,
+        borderRadius: radius.pill,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: pressed ? c.accentSoft : c.surface,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: c.shellLine,
+      })}
+    >
+      <Text style={{ fontSize: 16, color: c.accentStrong, lineHeight: 18 }}>{label}</Text>
+    </Pressable>
+  )
 }
