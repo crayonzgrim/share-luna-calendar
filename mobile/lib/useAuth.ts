@@ -55,3 +55,26 @@ export async function signInWithKakao(): Promise<void> {
 export function signOut() {
   return supabase.auth.signOut()
 }
+
+/**
+ * 계정 삭제. 내가 올린 사진 파일을 먼저 지우고(DB 함수는 Storage를 건드리지 않는다),
+ * delete_my_account()로 계정·내 일정을 지운 뒤 이 기기의 세션만 정리한다.
+ * 사진 경로는 {group_id}/{내 user_id}/... 라서 내 그룹마다 내 폴더를 비우면 된다.
+ */
+/** heirs: { 그룹 id: 다음 그룹장 user id } — 내가 만든 그룹마다 삭제 화면에서 고른 사람 */
+export async function deleteAccount(userId: string, heirs: Record<string, string>): Promise<void> {
+  const bucket = supabase.storage.from('entry-images')
+  const { data: groups, error } = await supabase.from('groups').select('id')
+  if (error) throw error
+  for (const g of groups ?? []) {
+    const folder = `${g.id}/${userId}`
+    // ponytail: 한 번에 1000개까지 본다. 한 사람이 한 그룹에 사진을 1000장 넘게 올리면 남는다 — 그때 페이지를 넘길 것
+    const { data: files } = await bucket.list(folder, { limit: 1000 })
+    if (files?.length) await bucket.remove(files.map((f) => `${folder}/${f.name}`))
+  }
+
+  const { error: rpcError } = await supabase.rpc('delete_my_account', { heirs })
+  if (rpcError) throw rpcError
+  // 서버에서는 이미 사용자가 없다. 전역 로그아웃은 실패하니 이 기기 세션만 지운다
+  await supabase.auth.signOut({ scope: 'local' })
+}
