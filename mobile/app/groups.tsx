@@ -15,7 +15,8 @@ import { fetchGroupMembers, joinGroupByCode, updateGroupName } from '../../src/l
 import { errorMessage } from '../../src/lib/errors'
 import type { Profile } from '../../src/lib/types'
 import { Badge, ErrorText, NavBtn, SectionLabel, Shell } from '../components/ui'
-import { useAuth } from '../lib/useAuth'
+import { deleteAccount, useAuth } from '../lib/useAuth'
+import DeleteAccountSheet from '../components/DeleteAccountSheet'
 import { useGroups } from '../lib/useGroups'
 import { radius, useColors } from '../lib/theme'
 import { DEMO, DEMO_USER_ID, demoMembers, useDemoGroups } from '../lib/demo'
@@ -91,6 +92,25 @@ export default function GroupsScreen() {
       setError(errorMessage(err, '이름을 바꾸지 못했어요'))
     } finally {
       setBusy(false)
+    }
+  }
+
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  const [deleteOpen, setDeleteOpen] = useState(false)
+
+  async function runDelete(heirs: Record<string, string>) {
+    if (!user) return
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      await deleteAccount(user.id, heirs)
+      // 세션이 사라지면 루트 레이아웃이 로그인 화면으로 바꾼다. 그룹 화면은 쌓아두지 않는다
+      router.replace('/')
+    } catch (err) {
+      setDeleteError(errorMessage(err, '계정을 삭제하지 못했어요'))
+      setDeleting(false)
     }
   }
 
@@ -337,6 +357,48 @@ export default function GroupsScreen() {
             {joinError && <ErrorText>{joinError}</ErrorText>}
           </View>
         </Shell>
+
+        {/* 위험한 동작은 맨 아래에 떼어 둔다 — 평소 쓰는 버튼들과 섞이지 않게 */}
+        {!DEMO && user && (
+          <View style={{ marginTop: 48, alignItems: 'center', gap: 8 }}>
+            <Pressable
+              onPress={() => {
+                setDeleteError(null)
+                setDeleteOpen(true)
+              }}
+              disabled={deleting}
+              accessibilityRole="button"
+              style={({ pressed }) => ({
+                minHeight: TAP,
+                justifyContent: 'center',
+                paddingHorizontal: 20,
+                borderRadius: radius.pill,
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: c.danger,
+                opacity: deleting ? 0.5 : pressed ? 0.7 : 1,
+              })}
+            >
+              {deleting ? (
+                <ActivityIndicator color={c.danger} />
+              ) : (
+                <Text style={{ fontSize: 14, fontWeight: '600', color: c.danger }}>계정 삭제</Text>
+              )}
+            </Pressable>
+          </View>
+        )}
+        {/* 되돌릴 수 없으니 무엇이 지워지는지 보여주고, 내 그룹마다 다음 그룹장을 고르게 한다 */}
+        {user && (
+          <DeleteAccountSheet
+            visible={deleteOpen}
+            myId={user.id}
+            groups={groups}
+            members={members}
+            busy={deleting}
+            error={deleteError}
+            onCancel={() => setDeleteOpen(false)}
+            onConfirm={(heirs) => void runDelete(heirs)}
+          />
+        )}
       </ScrollView>
     </View>
   )
