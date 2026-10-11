@@ -1,4 +1,4 @@
-import { Platform, useColorScheme } from 'react-native'
+import { Platform } from 'react-native'
 
 /**
  * 밝은 Slate 중성 + Indigo 프라이머리 (Material 3 톤). 앱 전용이다 —
@@ -32,7 +32,7 @@ const light = {
 }
 
 /** 반전이 아니라 다시 짠 관계 — bg < surface < shell 순으로 떠오르고, Indigo는 밝은 쪽으로 옮긴다 */
-const dark: typeof light = {
+export const dark: typeof light = {
   bg: '#0b1220',
   surface: '#151c2c',
   shell: '#1b2334',
@@ -96,7 +96,13 @@ export function lift(colors: Colors, strong = false) {
   })
 }
 
+/**
+ * ponytail: 라이트 고정. 기기가 다크 모드여도 따라가지 않는다.
+ * Appearance.setColorScheme('light')만으로는 useColorScheme()이 여전히 'dark'를 돌려줘서
+ * (갤럭시 S23·RN 0.86에서 확인) 여기서 직접 고른다. dark 팔레트는 남겨둔다 —
+ * 토글을 만들 때 저장된 설정값을 읽어 dark를 돌려주면 된다.
+ */
 export function useColors(): Colors {
-  return useColorScheme() === 'dark' ? dark : light
+  return light
 }
 

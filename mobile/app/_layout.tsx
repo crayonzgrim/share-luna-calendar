@@ -8,8 +8,8 @@ import { useAuth } from '../lib/useAuth'
 import { useColors } from '../lib/theme'
 import { DEMO } from '../lib/demo'
 
-// ponytail: 지금은 라이트 고정. 설정 화면이 생기면 저장된 값을 여기 넘기면 된다
-// ('dark', 또는 기기 설정을 따라가려면 null). useColors가 이 값을 그대로 읽는다.
+// 라이트 고정 — 날짜 선택 창·알림창 같은 네이티브 창용. 앱 화면 색은 useColors가 따로 고정한다.
+// 토글을 만들 때 둘을 같은 설정값으로 함께 바꿀 것.
 Appearance.setColorScheme('light')
 
 export default function RootLayout() {
@@ -18,7 +18,8 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="auto" />
+      {/* 배경이 늘 밝으니 상태바 아이콘은 늘 어둡게 — auto면 기기 다크 모드에서 흰 아이콘이 묻힌다 */}
+      <StatusBar style="dark" />
       {/* ponytail: 임시 — DEMO면 로그인을 건너뛴다. lib/demo.ts 참고 */}
       {!DEMO && loading ? (
         <Loading />
