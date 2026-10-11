@@ -35,7 +35,9 @@
           "cameraPermission": false,
           "microphonePermission": false
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker",
+      "./plugins/withLightTheme"
     ]
   }
 }
