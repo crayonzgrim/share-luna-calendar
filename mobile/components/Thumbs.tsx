@@ -33,20 +33,29 @@ export default function Thumbs({
     setSaveMsg(null)
   }
 
+  // 이미 올라간 사진(서명 URL)만 저장할 수 있다. 폼에서 막 고른 사진은 원래 기기에 있다
+  const saved = uris.filter((u): u is string => !!u?.startsWith('http'))
+
   /**
-   * 크게 본 사진을 기기 갤러리에 저장한다. 서명 URL을 캐시로 내려받아 MediaStore에 넣고 캐시는 지운다.
+   * 사진을 기기 갤러리에 저장한다. 서명 URL을 캐시로 내려받아 MediaStore에 넣고 캐시는 지운다.
    * 안드로이드 10+에서는 앱이 새로 만드는 사진에 저장소 권한이 필요 없다 — 그래서 권한을 묻지 않는다.
+   * 여러 장이면 한 장씩 — 중간에 실패해도 앞서 저장한 장수는 알려준다.
    */
-  async function save(uri: string) {
+  async function save(list: string[]) {
     setSaving(true)
     setSaveMsg(null)
+    let done = 0
     try {
-      const file = await File.downloadFileAsync(uri, Paths.cache, { idempotent: true })
-      await Asset.create(file.uri)
-      file.delete()
-      setSaveMsg('갤러리에 저장했어요')
+      for (const uri of list) {
+        const file = await File.downloadFileAsync(uri, Paths.cache, { idempotent: true })
+        await Asset.create(file.uri)
+        file.delete()
+        done++
+      }
+      setSaveMsg(list.length > 1 ? `${done}장을 갤러리에 저장했어요` : '갤러리에 저장했어요')
     } catch (err) {
-      setSaveMsg(errorMessage(err, '사진을 저장하지 못했어요'))
+      const why = errorMessage(err, '사진을 저장하지 못했어요')
+      setSaveMsg(done > 0 ? `${done}장 저장 후 멈췄어요 — ${why}` : why)
     } finally {
       setSaving(false)
     }
@@ -128,36 +137,53 @@ export default function Thumbs({
               <Image source={{ uri: open }} resizeMode="contain" style={{ width: '100%', height: '100%' }} />
             )}
           </Pressable>
-          {/* 이미 올라간 사진(서명 URL)만 저장할 수 있다. 폼에서 막 고른 사진은 원래 기기에 있다 */}
           {open?.startsWith('http') && (
             <View style={{ alignItems: 'center', gap: 8, paddingTop: 12, paddingBottom: insets.bottom + 20 }}>
-              <Pressable
-                onPress={() => void save(open)}
-                disabled={saving}
-                accessibilityRole="button"
-                accessibilityLabel="사진 저장"
-                style={({ pressed }) => ({
-                  minHeight: 44,
-                  minWidth: 120,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  paddingHorizontal: 22,
-                  borderRadius: radius.pill,
-                  backgroundColor: 'rgba(255, 255, 255, 0.16)',
-                  opacity: saving ? 0.6 : pressed ? 0.75 : 1,
-                })}
-              >
-                {saving ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#fff' }}>↓  저장</Text>
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <SaveBtn label="↓  저장" busy={saving} onPress={() => void save([open])} a11y="이 사진 저장" />
+                {saved.length > 1 && (
+                  <SaveBtn
+                    label={`↓  전체 저장 (${saved.length}장)`}
+                    busy={saving}
+                    onPress={() => void save(saved)}
+                    a11y={`이 일정 사진 ${saved.length}장 모두 저장`}
+                  />
                 )}
-              </Pressable>
+              </View>
               {saveMsg && <Text style={{ fontSize: 13, color: 'rgba(255, 255, 255, 0.8)' }}>{saveMsg}</Text>}
             </View>
           )}
         </View>
       </Modal>
     </View>
+  )
+}
+
+/** 사진 크게 보기 화면의 어두운 배경 위 버튼 */
+function SaveBtn({ label, busy, onPress, a11y }: { label: string; busy: boolean; onPress: () => void; a11y: string }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={busy}
+      accessibilityRole="button"
+      accessibilityLabel={a11y}
+      accessibilityState={{ busy }}
+      style={({ pressed }) => ({
+        minHeight: 44,
+        minWidth: 110,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 20,
+        borderRadius: radius.pill,
+        backgroundColor: 'rgba(255, 255, 255, 0.16)',
+        opacity: busy ? 0.6 : pressed ? 0.75 : 1,
+      })}
+    >
+      {busy ? (
+        <ActivityIndicator color="#fff" />
+      ) : (
+        <Text style={{ fontSize: 14, fontWeight: '600', color: '#fff' }}>{label}</Text>
+      )}
+    </Pressable>
   )
 }
