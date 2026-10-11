@@ -37,6 +37,13 @@
         }
       ],
       "@react-native-community/datetimepicker",
+      [
+        "expo-media-library",
+        {
+          "savePhotosPermission": "일정 사진을 갤러리에 저장하려고 해요",
+          "granularPermissions": []
+        }
+      ],
       "./plugins/withLightTheme"
     ]
   }
