@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Image } from 'expo-image'
 import type { StyleProp, TextStyle, ViewStyle } from 'react-native'
 import { BEZEL, lift, radius, useColors } from '../lib/theme'
 
@@ -133,7 +134,7 @@ export function Avatar({ name, url, size = 18 }: { name?: string; url?: string |
   const c = useColors()
   const box = { width: size, height: size, borderRadius: radius.pill, backgroundColor: c.shellLine }
   if (url) {
-    return <Image source={{ uri: url.replace(/^http:\/\//, 'https://') }} style={box} accessibilityIgnoresInvertColors />
+    return <Image source={{ uri: url.replace(/^http:\/\//, 'https://') }} style={box} />
   }
   return (
     <View style={[box, { alignItems: 'center', justifyContent: 'center' }]}>

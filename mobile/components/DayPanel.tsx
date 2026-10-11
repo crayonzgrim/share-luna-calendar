@@ -3,7 +3,7 @@ import { Alert, Platform, Pressable, StyleSheet, Switch, Text, TextInput, View }
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker'
 import * as ImagePicker from 'expo-image-picker'
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator'
-import { MAX_ENTRY_IMAGES, removeEntryImages, uploadEntryImage } from '../../src/lib/api'
+import { MAX_ENTRY_IMAGES, removeEntryImages, thumbPath, uploadEntryImage } from '../../src/lib/api'
 import type { EntryPatch, NewEntry } from '../../src/lib/api'
 import { isSameDay } from '../../src/lib/calendar'
 import { errorMessage } from '../../src/lib/errors'
@@ -68,7 +68,8 @@ export default function DayPanel({
   const dayEntries = entries.filter((e) =>
     occurrencesInMonth(e, date.getFullYear(), date.getMonth() + 1).some((d) => isSameDay(d, date)),
   ).sort(byTime)
-  const urls = useImageUrls(dayEntries.flatMap((e) => e.image_paths ?? []))
+  // 원본과 썸네일을 함께 서명한다 — 칸에는 썸네일, 크게 볼 땐 원본. 썸네일이 없는 예전 사진은 원본으로
+  const urls = useImageUrls(dayEntries.flatMap((e) => (e.image_paths ?? []).flatMap((p) => [thumbPath(p), p])))
   const imageCount = keptPaths.length + newUris.length
 
   function reset() {
@@ -175,7 +176,8 @@ export default function DayPanel({
       // 하나씩 올린다 — 중간에 실패해도 어디까지 올라갔는지 알아야 치울 수 있다
       for (const uri of newUris) {
         const body = await (await fetch(uri)).arrayBuffer()
-        uploaded.push(await uploadEntryImage(groupId, userId, body))
+        const thumb = await (await fetch(await makeThumb(uri))).arrayBuffer()
+        uploaded.push(await uploadEntryImage(groupId, userId, body, thumb))
       }
       const image_paths = [...keptPaths, ...uploaded]
 
@@ -337,7 +339,10 @@ export default function DayPanel({
                     )}
                     {!!e.image_paths?.length && (
                       <View style={{ marginTop: 8 }}>
-                        <Thumbs uris={e.image_paths.map((p) => urls[p])} />
+                        <Thumbs
+                          uris={e.image_paths.map((p) => urls[thumbPath(p)] ?? urls[p])}
+                          full={e.image_paths.map((p) => urls[p])}
+                        />
                       </View>
                     )}
                     {/* 공유 달력이라 누가 적었는지가 중요하다 — 사진과 이름을 오른쪽 끝에 */}
@@ -477,7 +482,8 @@ export default function DayPanel({
           {/* 사진 칸 끝의 + 칸으로 추가한다. 5장이 차면 + 칸이 사라진다 */}
           <View style={{ paddingTop: 6 }}>
             <Thumbs
-              uris={[...keptPaths.map((p) => urls[p]), ...newUris]}
+              uris={[...keptPaths.map((p) => urls[thumbPath(p)] ?? urls[p]), ...newUris]}
+              full={[...keptPaths.map((p) => urls[p]), ...newUris]}
               onRemove={removeImage}
               onAdd={imageCount < MAX_ENTRY_IMAGES ? () => void pickImages() : undefined}
             />
@@ -615,6 +621,16 @@ async function shrink(a: ImagePicker.ImagePickerAsset): Promise<string> {
   }
   const img = await ctx.renderAsync()
   const out = await img.saveAsync({ compress: 0.8, format: SaveFormat.JPEG })
+  return out.uri
+}
+
+// 목록 칸(64pt)용 썸네일. 원본(수백 KB)을 칸마다 받으면 사진 여러 장인 날이 느리다 — 이건 장당 10~20KB.
+// 가로 240이면 3배 밀도 화면의 64pt 칸을 채운다.
+const THUMB_WIDTH = 240
+
+async function makeThumb(uri: string): Promise<string> {
+  const img = await ImageManipulator.manipulate(uri).resize({ width: THUMB_WIDTH }).renderAsync()
+  const out = await img.saveAsync({ compress: 0.7, format: SaveFormat.JPEG })
   return out.uri
 }
 

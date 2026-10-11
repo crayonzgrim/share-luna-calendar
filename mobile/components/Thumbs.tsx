@@ -1,10 +1,19 @@
 import { useState } from 'react'
-import { ActivityIndicator, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Image } from 'expo-image'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { File, Paths } from 'expo-file-system'
 import { Asset } from 'expo-media-library'
 import { errorMessage } from '../../src/lib/errors'
 import { radius, useColors } from '../lib/theme'
+
+/**
+ * 서명 URL은 받을 때마다 ?token=…이 달라진다. 캐시 열쇠를 토큰 앞까지(=Storage 경로)로 잡아야
+ * 앱을 껐다 켜도 한 번 받은 사진을 디스크에서 바로 꺼낸다. 기기 안 파일(file://)은 그대로.
+ */
+function source(uri: string) {
+  return uri.startsWith('http') ? { uri, cacheKey: uri.split('?')[0] } : { uri }
+}
 
 /**
  * 첨부 사진 썸네일 줄. 누르면 전체 화면으로 크게 본다.
@@ -14,10 +23,13 @@ import { radius, useColors } from '../lib/theme'
  */
 export default function Thumbs({
   uris,
+  full = uris,
   onRemove,
   onAdd,
 }: {
   uris: (string | undefined)[]
+  /** 크게 볼 때·저장할 때 쓰는 원본. 없으면 uris를 그대로 쓴다 (칸에는 작은 썸네일, 크게는 원본) */
+  full?: (string | undefined)[]
   onRemove?: (index: number) => void
   onAdd?: () => void
 }) {
@@ -34,7 +46,7 @@ export default function Thumbs({
   }
 
   // 이미 올라간 사진(서명 URL)만 저장할 수 있다. 폼에서 막 고른 사진은 원래 기기에 있다
-  const saved = uris.filter((u): u is string => !!u?.startsWith('http'))
+  const saved = full.filter((u): u is string => !!u?.startsWith('http'))
 
   /**
    * 사진을 기기 갤러리에 저장한다. 서명 URL을 캐시로 내려받아 MediaStore에 넣고 캐시는 지운다.
@@ -68,12 +80,16 @@ export default function Thumbs({
       {uris.map((uri, i) => (
         <View key={`${i}-${uri}`}>
           <Pressable
-            onPress={() => uri && view(uri)}
+            onPress={() => {
+              const big = full[i] ?? uri
+              if (big) view(big)
+            }}
             accessibilityRole="imagebutton"
             accessibilityLabel={`사진 ${i + 1} 크게 보기`}
           >
             <Image
-              source={{ uri }}
+              source={uri ? source(uri) : null}
+              transition={120}
               style={{
                 width: 64,
                 height: 64,
@@ -134,7 +150,7 @@ export default function Thumbs({
         <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.92)' }}>
           <Pressable onPress={() => view(null)} accessibilityLabel="사진 닫기" style={{ flex: 1, justifyContent: 'center' }}>
             {open && (
-              <Image source={{ uri: open }} resizeMode="contain" style={{ width: '100%', height: '100%' }} />
+              <Image source={source(open)} contentFit="contain" style={{ width: '100%', height: '100%' }} />
             )}
           </Pressable>
           {open?.startsWith('http') && (
