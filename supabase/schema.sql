@@ -195,6 +195,46 @@ end;
 $$;
 
 
+-- 계정 삭제 (009-delete-account.sql 참고). 내가 만든 그룹은 다른 멤버에게 넘기고 혼자인 그룹만 지운다.
+create or replace function public.delete_my_account(heirs jsonb default '{}')
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  me uuid := auth.uid();
+  g record;
+  heir uuid;
+begin
+  if me is null then
+    raise exception '로그인이 필요합니다';
+  end if;
+
+  for g in select id from public.groups where created_by = me loop
+    -- 앱에서 고른 다음 그룹장. 그 그룹의 멤버가 아니면(조작된 값) 무시하고 가장 먼저 들어온 멤버로
+    select user_id into heir
+    from public.group_members
+    where group_id = g.id and user_id <> me
+    order by (user_id::text = heirs ->> g.id::text) desc, joined_at
+    limit 1;
+
+    if heir is null then
+      delete from public.groups where id = g.id;
+    else
+      update public.group_members set role = 'owner' where group_id = g.id and user_id = heir;
+      update public.groups set created_by = heir where id = g.id;
+    end if;
+  end loop;
+
+  delete from auth.users where id = me;
+end;
+$$;
+
+revoke all on function public.delete_my_account(jsonb) from public, anon;
+grant execute on function public.delete_my_account(jsonb) to authenticated;
+
+
 -- ---------- RLS ----------
 
 alter table public.profiles      enable row level security;
