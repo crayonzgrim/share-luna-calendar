@@ -51,8 +51,13 @@ create table if not exists public.entries (
   -- 일정 종류 key ('birthday', 'memorial' …). 이모지·라벨 매핑은 앱(src/lib/icons.ts)에 있다.
   icon          text check (icon is null or length(icon) <= 32),
   date_type     text not null default 'solar' check (date_type in ('solar', 'lunar')),
-  repeat        text not null default 'none'  check (repeat in ('none', 'yearly', 'monthly')),
+  repeat        text not null default 'none'
+                check (repeat in ('none', 'daily', 'weekly', 'monthly', 'yearly')),
+  -- n일/주/개월/년마다의 n
+  repeat_interval int not null default 1 check (repeat_interval between 1 and 99),
   event_date    date not null,
+  -- 시각 (시간대 없음). null이면 종일 일정.
+  event_time    time,
   lunar_month   int  check (lunar_month between 1 and 12),
   lunar_day     int  check (lunar_day   between 1 and 30),
   is_leap_month boolean not null default false,

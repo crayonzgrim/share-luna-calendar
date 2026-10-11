@@ -76,7 +76,8 @@ export async function createEntry(entry: NewEntry): Promise<EntryWithAuthor> {
 }
 
 /** 수정 가능한 항목. 날짜 관련 필드는 뺀다 — 날짜를 바꾸려면 지우고 다시 만든다. */
-export type EntryPatch = Pick<Entry, 'title' | 'memo' | 'icon' | 'repeat' | 'image_paths'>
+export type EntryPatch = Pick<Entry, 'title' | 'memo' | 'icon' | 'repeat' | 'repeat_interval' | 'image_paths' | 'event_time'> &
+  Partial<Pick<Entry, 'event_date' | 'lunar_month' | 'lunar_day' | 'is_leap_month'>>
 
 export async function updateEntry(id: string, patch: EntryPatch): Promise<EntryWithAuthor> {
   const { data, error } = await supabase

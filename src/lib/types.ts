@@ -24,6 +24,10 @@ export type Entry = {
   date_type: DateType
   repeat: RepeatRule
   event_date: string
+  /** n일/주/개월/년마다의 n. 1이면 매일·매주·매월·매년 */
+  repeat_interval?: number
+  /** 'HH:MM:SS'. 비어 있으면 종일 일정 */
+  event_time?: string | null
   lunar_month: number | null
   lunar_day: number | null
   is_leap_month: boolean
