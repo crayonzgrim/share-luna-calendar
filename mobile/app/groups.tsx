@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   ActivityIndicator,
   Pressable,
@@ -11,7 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Clipboard from 'expo-clipboard'
 import { router } from 'expo-router'
-import { createGroup, fetchGroupMembers, joinGroupByCode, updateGroupName } from '../../src/lib/api'
+import { fetchGroupMembers, joinGroupByCode, updateGroupName } from '../../src/lib/api'
 import { errorMessage } from '../../src/lib/errors'
 import type { Profile } from '../../src/lib/types'
 import { Badge, ErrorText, NavBtn, SectionLabel, Shell } from '../components/ui'
@@ -49,11 +49,9 @@ export default function GroupsScreen() {
   const demoGroups = useDemoGroups()
   const { groups, loading, reload } = DEMO ? demoGroups : realGroups
 
-  const [name, setName] = useState('')
   // null = 못 불러옴. undefined(키 없음) = 아직 불러오는 중 — 둘을 갈라야 영영 "불러오는 중"이 안 남는다.
   const [members, setMembers] = useState<Record<string, Profile[] | null>>({})
   const [error, setError] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState<string | null>(null)
   const [renamingId, setRenamingId] = useState<string | null>(null)
@@ -62,7 +60,6 @@ export default function GroupsScreen() {
   const [joining, setJoining] = useState(false)
   const [joinError, setJoinError] = useState<string | null>(null)
   const [joined, setJoined] = useState(false)
-  const nameInput = useRef<TextInput>(null)
 
   const myId = DEMO ? DEMO_USER_ID : user?.id
 
@@ -77,30 +74,6 @@ export default function GroupsScreen() {
         .catch(() => setMembers((prev) => ({ ...prev, [g.id]: null })))
     }
   }, [groups])
-
-  async function submit() {
-    const wanted = name.trim()
-    if (!wanted || busy) return
-    setBusy(true)
-    try {
-      if (DEMO) {
-        demoGroups.addGroup(wanted)
-      } else {
-        if (!user) return
-        await createGroup(wanted, user.id)
-        await reload()
-      }
-      setName('')
-      setError(null)
-      // 만들고 나면 목록 어딘가에 카드가 생길 뿐이라 성공을 못 알아챈다 — 한 줄로 알린다
-      setNotice(`'${wanted}' 그룹을 만들었어요`)
-      setTimeout(() => setNotice(null), 2500)
-    } catch (err) {
-      setError(errorMessage(err, '그룹을 만들지 못했어요'))
-    } finally {
-      setBusy(false)
-    }
-  }
 
   async function submitRename(id: string) {
     if (!draft.trim() || busy) return
@@ -180,7 +153,7 @@ export default function GroupsScreen() {
           함께 보는 사람들
         </Text>
         <Text style={{ fontSize: 14, lineHeight: 21, color: c.muted, marginTop: 6 }}>
-          그룹을 만들고 초대 코드를 보내면 같은 달력을 함께 봐요.
+          초대 코드를 보내면 같은 달력을 함께 봐요.
         </Text>
 
         <SectionLabel>내 그룹</SectionLabel>
@@ -201,25 +174,8 @@ export default function GroupsScreen() {
               <View style={{ alignItems: 'center', gap: 6, paddingVertical: 28, paddingHorizontal: 24 }}>
                 <Text style={{ fontSize: 15, fontWeight: '600', color: c.fg }}>아직 그룹이 없어요</Text>
                 <Text style={{ fontSize: 13, lineHeight: 19, color: c.muted, textAlign: 'center' }}>
-                  가족이나 친구와 함께 볼 그룹을 하나 만들어 보세요.
+                  달력 화면 위쪽 그룹 선택에서 새로 만들거나, 받은 초대 코드로 들어오세요.
                 </Text>
-                <Pressable
-                  // ponytail: 목록이 비면 아래 입력칸이 이미 화면 안이라 포커스만 준다
-                  onPress={() => nameInput.current?.focus()}
-                  accessibilityRole="button"
-                  accessibilityLabel="새 그룹 이름 입력하기"
-                  style={({ pressed }) => ({
-                    marginTop: 8,
-                    minHeight: TAP,
-                    justifyContent: 'center',
-                    paddingHorizontal: 22,
-                    borderRadius: radius.pill,
-                    backgroundColor: c.accentStrong,
-                    opacity: pressed ? 0.85 : 1,
-                  })}
-                >
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: c.accentFg }}>그룹 만들기</Text>
-                </Pressable>
               </View>
             </Shell>
           )}
@@ -379,53 +335,6 @@ export default function GroupsScreen() {
               <Text style={{ fontSize: 13, color: c.accentStrong }}>그룹에 들어갔어요. 위 목록에서 확인하세요</Text>
             )}
             {joinError && <ErrorText>{joinError}</ErrorText>}
-          </View>
-        </Shell>
-
-        <SectionLabel>새 그룹 만들기</SectionLabel>
-
-        <Shell>
-          <View style={{ padding: 16, gap: 9 }}>
-            <Text style={{ fontSize: 12, fontWeight: '600', color: c.muted }}>그룹 이름</Text>
-            <TextInput
-              ref={nameInput}
-              value={name}
-              onChangeText={setName}
-              placeholder="예: 우리 가족"
-              placeholderTextColor={c.faint}
-              maxLength={50}
-              returnKeyType="done"
-              onSubmitEditing={() => void submit()}
-              style={field}
-            />
-            <Text style={{ fontSize: 12, lineHeight: 17, color: c.faint }}>
-              만든 사람이 이름을 바꿀 수 있어요. 만든 뒤 초대 코드를 보내면 돼요.
-            </Text>
-            <Pressable
-              onPress={() => void submit()}
-              disabled={!name.trim() || busy}
-              accessibilityRole="button"
-              accessibilityState={{ disabled: !name.trim() || busy, busy }}
-              style={({ pressed }) => ({
-                minHeight: TAP,
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: radius.pill,
-                backgroundColor: c.accentStrong,
-                opacity: !name.trim() || busy ? 0.35 : pressed ? 0.85 : 1,
-              })}
-            >
-              {busy && !renamingId ? (
-                <ActivityIndicator color={c.accentFg} />
-              ) : (
-                <Text style={{ fontSize: 14, fontWeight: '600', color: c.accentFg }}>만들기</Text>
-              )}
-            </Pressable>
-            {/* 실패도 성공도 누른 버튼 바로 밑에서 알린다 — 화면 끝으로 보내면 못 본다 */}
-            {notice && (
-              <Text style={{ fontSize: 13, color: c.accentStrong }}>{notice}</Text>
-            )}
-            {error && !renamingId && <ErrorText>{error}</ErrorText>}
           </View>
         </Shell>
       </ScrollView>

@@ -1,14 +1,17 @@
-import { useState } from 'react'
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { useRef, useState } from 'react'
+import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import DayPanel from '../components/DayPanel'
 import EntryList from '../components/EntryList'
 import GroupSwitcher from '../components/GroupSwitcher'
+import NewGroupForm from '../components/NewGroupForm'
 import MonthGrid from '../components/MonthGrid'
-import Segmented from '../components/Segmented'
+import Sheet from '../components/Sheet'
+import type { SheetHandle } from '../components/Sheet'
 import { CenterMsg, ErrorText, Eyebrow, Loading, NavBtn, Pill } from '../components/ui'
 import { isSameDay, shiftMonth } from '../../src/lib/calendar'
+import { createGroup } from '../../src/lib/api'
 import { useEntries } from '../../src/lib/useEntries'
 import { signOut, useAuth } from '../lib/useAuth'
 import { useGroups } from '../lib/useGroups'
@@ -38,6 +41,7 @@ export default function CalendarScreen() {
   const [tab, setTab] = useState<'calendar' | 'list'>('calendar')
   // 그 날 상세는 달력 밑에 깔지 않고 시트로 띄운다. 밑에 두면 달력이 줄고 상세도 잘린다.
   const [sheetOpen, setSheetOpen] = useState(false)
+  const sheet = useRef<SheetHandle>(null)
 
   function move(delta: number) {
     const [y, m] = shiftMonth(year, month, delta)
@@ -65,7 +69,20 @@ export default function CalendarScreen() {
     setSelected(now)
   }
 
-  if (groupsLoading) return <Loading />
+  // 그룹을 새로 만들고 그쪽으로 옮긴다. 그룹 선택 창과 첫 화면이 같이 쓴다.
+  async function newGroup(name: string) {
+    if (DEMO) {
+      demoGroups.addGroup(name)
+      return
+    }
+    if (!user) return
+    const g = await createGroup(name, user.id)
+    await realGroups.reload()
+    select(g.id)
+  }
+
+  // 목록을 다시 불러올 때마다 화면 전체를 로딩으로 덮으면 깜빡인다 — 처음 한 번만
+  if (groupsLoading && groups.length === 0) return <Loading />
 
   if (groups.length === 0) {
     return (
@@ -74,37 +91,11 @@ export default function CalendarScreen() {
         <Text style={{ textAlign: 'center', color: c.muted, fontSize: 15, lineHeight: 25 }}>
           아직 속한 그룹이 없어요.{'\n'}달력을 함께 볼 그룹을 만들어 보세요.
         </Text>
-        <Pressable
-          onPress={() => router.push('/groups')}
-          style={({ pressed }) => [
-            {
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 12,
-              backgroundColor: c.accentStrong,
-              borderRadius: radius.pill,
-              paddingLeft: 22,
-              paddingRight: 9,
-              paddingVertical: 9,
-              transform: [{ scale: pressed ? 0.975 : 1 }],
-            },
-            lift(c),
-          ]}
-        >
-          <Text style={{ color: c.accentFg, fontSize: 15, fontWeight: '600' }}>그룹 만들기</Text>
-          <View
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: radius.pill,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: 'rgba(255,255,255,0.22)',
-            }}
-          >
-            <Text style={{ color: c.accentFg, fontSize: 14 }}>↗</Text>
-          </View>
-        </Pressable>
+        <View style={{ alignSelf: 'stretch', paddingHorizontal: 8 }}>
+          <NewGroupForm onCreate={newGroup} />
+        </View>
+        {/* 초대받은 사람은 만들 필요 없이 코드로 들어온다 */}
+        <Pill label="초대 코드가 있어요" onPress={() => router.push('/groups')} />
         {groupsError && <ErrorText>{groupsError}</ErrorText>}
       </CenterMsg>
     )
@@ -113,7 +104,7 @@ export default function CalendarScreen() {
   const problem = groupsError ?? entriesError
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
+    <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top, paddingBottom: insets.bottom }}>
       {/* 웹의 sticky .topbar — 스크롤과 무관하게 자리를 지킨다 */}
       <View
         style={[
@@ -133,8 +124,13 @@ export default function CalendarScreen() {
           lift(c),
         ]}
       >
-        <GroupSwitcher groups={groups} selectedId={selectedId} onSelect={select} />
+        <GroupSwitcher groups={groups} selectedId={selectedId} onSelect={select} onCreate={newGroup} />
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {/* 달력/일정 목록 전환 — 지금 화면이 아니라 '누르면 갈 화면' 이름을 보여준다 */}
+          <Pill
+            label={tab === 'calendar' ? '일정 목록' : '달력'}
+            onPress={() => setTab(tab === 'calendar' ? 'list' : 'calendar')}
+          />
           <Pill label="그룹" onPress={() => router.push('/groups')} />
           <Pill label="로그아웃" onPress={() => void signOut()} />
         </View>
@@ -142,23 +138,27 @@ export default function CalendarScreen() {
 
       {tab === 'calendar' ? (
         <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 9, marginTop: 4, marginBottom: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6, marginRight: 'auto' }}>
+          {/* 좌우 화살표는 월을 감싼다 — 옮기는 대상이 월이라는 게 바로 보이게.
+              오늘 버튼은 오른쪽에 따로 둔다 (가운데 끼어 있으면 화살표가 '일'을 옮기는 것처럼 읽힌다) */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 4, marginBottom: 12 }}>
+            <NavBtn label="‹" size={34} onPress={() => move(-1)} accessibilityLabel="이전 달" />
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
               <Text style={{ fontSize: 13, color: c.faint }}>{year}</Text>
               <Text style={{ fontSize: 38, fontWeight: '500', letterSpacing: -2.2, color: c.fg }}>
                 {month}
               </Text>
               <Text style={{ fontSize: 15, color: c.muted }}>월</Text>
             </View>
-            <NavBtn label="‹" size={34} onPress={() => move(-1)} accessibilityLabel="이전 달" />
-            {/* 점 대신 오늘 날짜 — 눌러 오늘로 돌아온다 */}
-            <NavBtn
-              label={String(today.getDate())}
-              size={34}
-              onPress={goToday}
-              accessibilityLabel={`오늘(${today.getMonth() + 1}월 ${today.getDate()}일)로`}
-            />
             <NavBtn label="›" size={34} onPress={() => move(1)} accessibilityLabel="다음 달" />
+            {/* 점 대신 오늘 날짜 — 눌러 오늘로 돌아온다 */}
+            <View style={{ marginLeft: 'auto' }}>
+              <NavBtn
+                label={String(today.getDate())}
+                size={34}
+                onPress={goToday}
+                accessibilityLabel={`오늘(${today.getMonth() + 1}월 ${today.getDate()}일)로`}
+              />
+            </View>
           </View>
 
           {problem && <ErrorText style={{ marginBottom: 10 }}>{problem}</ErrorText>}
@@ -178,40 +178,7 @@ export default function CalendarScreen() {
         </ScrollView>
       )}
 
-      <Modal
-        visible={sheetOpen}
-        transparent
-        animationType="slide"
-        statusBarTranslucent
-        onRequestClose={() => setSheetOpen(false)}
-      >
-        <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-          {/* 바깥을 누르면 닫힌다 — 안드로이드 뒤로가기는 onRequestClose가 받는다 */}
-          <Pressable
-            style={[StyleSheet.absoluteFill, { backgroundColor: c.scrim }]}
-            onPress={() => setSheetOpen(false)}
-            accessibilityLabel="닫기"
-          />
-          <View
-            style={{
-              maxHeight: '88%',
-              backgroundColor: c.surface,
-              borderTopLeftRadius: radius.shell,
-              borderTopRightRadius: radius.shell,
-              paddingBottom: insets.bottom,
-            }}
-          >
-            <View
-              style={{
-                alignSelf: 'center',
-                width: 38,
-                height: 4,
-                borderRadius: radius.pill,
-                backgroundColor: c.shellLine,
-                marginTop: 10,
-              }}
-            />
-            <ScrollView keyboardShouldPersistTaps="handled">
+      <Sheet ref={sheet} visible={sheetOpen} onClose={() => setSheetOpen(false)}>
               {/* 날짜가 바뀌면 새로 마운트해 열려 있던 폼과 입력값을 비운다 */}
               <DayPanel
                 key={selected.toDateString()}
@@ -222,30 +189,11 @@ export default function CalendarScreen() {
                 onAdd={add}
                 onEdit={edit}
                 onDelete={remove}
+                onMoved={jumpTo}
+                onFormOpen={() => sheet.current?.expand()}
               />
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      </Sheet>
 
-      <View
-        style={{
-          alignItems: 'center',
-          paddingTop: 8,
-          paddingBottom: insets.bottom + 8,
-          borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: c.shellLine,
-        }}
-      >
-        <Segmented
-          value={tab}
-          onChange={setTab}
-          options={[
-            { value: 'calendar', label: '달력' },
-            { value: 'list', label: '일정 목록' },
-          ]}
-        />
-      </View>
     </View>
   )
 }
