@@ -241,41 +241,95 @@ export default function DayPanel({
   // 폼이 열려 있으면 고른 날짜를, 아니면 달력에서 누른 날을 보여준다
   const shown = formOpen ? day : date
   const shownLunar = formOpen ? dayLunar : lunar
+  // 폼에서 음력을 골랐으면(또는 음력 일정을 고치는 중이면) 음력 날짜를 앞에 크게
+  const lunarFirst = formOpen && dateType === 'lunar' ? shownLunar : null
   const canSubmit = !!title.trim() && !saving
 
   return (
     <View style={{ padding: 18 }}>
-        {/* 폼이 열려 있으면 맨 위 날짜가 곧 저장할 날짜다. 눌러서 바꾼다
-            (안드로이드는 시스템 달력 창, iOS는 그 자리의 compact 피커) */}
-        <Pressable
-          onPress={formOpen && Platform.OS !== 'ios' ? pickDay : undefined}
-          disabled={!formOpen || Platform.OS === 'ios'}
-          accessibilityRole={formOpen ? 'button' : 'header'}
-          accessibilityLabel={formOpen ? '날짜 바꾸기' : undefined}
+        {/* 맨 위 줄: 왼쪽 날짜, 오른쪽 + (일정 추가). 일정이 많아도 끌어내리지 않고 바로 누른다 */}
+        <View
           style={{
             flexDirection: 'row',
-            alignItems: 'baseline',
-            gap: 8,
-            paddingBottom: 14,
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingBottom: 10,
             marginBottom: 14,
             borderBottomWidth: StyleSheet.hairlineWidth,
             borderBottomColor: c.line,
           }}
         >
-          {formOpen && Platform.OS === 'ios' ? (
-            <DateTimePicker value={day} mode="date" display="compact" onChange={(_, d) => d && setDay(d)} />
-          ) : (
-            <Text style={{ fontSize: 22, fontWeight: '600', color: c.fg, letterSpacing: -0.8 }}>
-              {shown.getMonth() + 1}월 {shown.getDate()}일
-              {formOpen && <Text style={{ fontSize: 15, color: c.accentStrong }}> ▾</Text>}
-            </Text>
+          {/* 폼이 열려 있으면 맨 위 날짜가 곧 저장할 날짜다. 눌러서 바꾼다
+              (안드로이드는 시스템 달력 창, iOS는 그 자리의 compact 피커) */}
+          <Pressable
+            onPress={formOpen && Platform.OS !== 'ios' ? pickDay : undefined}
+            disabled={!formOpen || Platform.OS === 'ios'}
+            accessibilityRole={formOpen ? 'button' : 'header'}
+            accessibilityLabel={formOpen ? '날짜 바꾸기' : undefined}
+            style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, flexShrink: 1 }}
+          >
+            {formOpen && Platform.OS === 'ios' ? (
+              <DateTimePicker value={day} mode="date" display="compact" onChange={(_, d) => d && setDay(d)} />
+            ) : lunarFirst ? (
+              // 음력으로 고르면 큰 글자를 음력 날짜로 바꾼다 — 저장되는 기준이 음력이라는 걸 보이게
+              <Text style={{ fontSize: 22, fontWeight: '600', color: c.fg, letterSpacing: -0.8 }}>
+                음력 {lunarFirst.isLeap ? '윤' : ''}
+                {lunarFirst.month}월 {lunarFirst.day}일
+                {formOpen && <Text style={{ fontSize: 15, color: c.accentStrong }}> ▾</Text>}
+              </Text>
+            ) : (
+              <Text style={{ fontSize: 22, fontWeight: '600', color: c.fg, letterSpacing: -0.8 }}>
+                {shown.getMonth() + 1}월 {shown.getDate()}일
+                {formOpen && <Text style={{ fontSize: 15, color: c.accentStrong }}> ▾</Text>}
+              </Text>
+            )}
+            {lunarFirst ? (
+              <Text style={{ fontSize: 12, color: c.muted }}>
+                양력 {shown.getMonth() + 1}.{shown.getDate()}
+              </Text>
+            ) : (
+              shownLunar && (
+                <Text style={{ fontSize: 12, color: c.muted }}>
+                  음력 {shownLunar.month}.{shownLunar.day}
+                </Text>
+              )
+            )}
+          </Pressable>
+
+          {/* 새 일정일 때만 양력/음력을 고른다. 수정 중에 바꾸면 저장된 음/양력 기준이 흔들린다 */}
+          {formOpen && !editingId && (
+            <Segmented
+              value={dateType}
+              onChange={(v) => changeDateType(v)}
+              options={[
+                { value: 'solar', label: '양력' },
+                { value: 'lunar', label: '음력' },
+              ]}
+            />
           )}
-          {shownLunar && (
-            <Text style={{ fontSize: 12, color: c.muted }}>
-              음력 {shownLunar.month}.{shownLunar.day}
-            </Text>
+
+          {!formOpen && (
+            <Pressable
+              onPress={() => {
+                setFormOpen(true)
+                onFormOpen?.()
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`${date.getMonth() + 1}월 ${date.getDate()}일에 일정 추가`}
+              style={({ pressed }) => ({
+                width: 44,
+                height: 44,
+                borderRadius: radius.pill,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: c.accentStrong,
+                opacity: pressed ? 0.85 : 1,
+              })}
+            >
+              <Text style={{ fontSize: 24, fontWeight: '400', color: c.accentFg, lineHeight: 28 }}>+</Text>
+            </Pressable>
           )}
-        </Pressable>
+        </View>
 
         {/* 추가·수정 중에는 그 날 목록을 감춘다 — 편집 화면에는 입력칸만 둔다 */}
         {!formOpen && (
@@ -362,24 +416,7 @@ export default function DayPanel({
           </View>
         )}
 
-        {!formOpen ? (
-          <Pressable
-            onPress={() => {
-              setFormOpen(true)
-              onFormOpen?.()
-            }}
-            style={({ pressed }) => ({
-              alignItems: 'center',
-              paddingVertical: 12,
-              borderRadius: radius.pill,
-              borderWidth: StyleSheet.hairlineWidth,
-              borderColor: c.shellLine,
-              backgroundColor: pressed ? c.surface : c.shell,
-            })}
-          >
-            <Text style={{ fontSize: 14, fontWeight: '600', color: c.fg }}>+ 일정 추가</Text>
-          </Pressable>
-        ) : (
+        {formOpen && (
         <View style={{ gap: 9 }}>
           {/* 시간 — 삼성 캘린더처럼 '하루 종일' 스위치를 끄면 그 자리에 시간 바퀴가 펼쳐진다 */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 }}>
@@ -522,20 +559,6 @@ export default function DayPanel({
                 </Pressable>
               )
             })}
-          </View>
-
-          <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-            {/* 날짜 종류를 바꾸면 저장된 음/양력 기준이 흔들린다. 수정 중엔 아예 숨긴다 */}
-            {!editingId && (
-              <Segmented
-                value={dateType}
-                onChange={(v) => changeDateType(v)}
-                options={[
-                  { value: 'solar', label: '양력' },
-                  { value: 'lunar', label: '음력' },
-                ]}
-              />
-            )}
           </View>
 
           {!editingId && dateType === 'lunar' && repeat === 'yearly' && dayLunar && (
