@@ -70,19 +70,35 @@ export function Eyebrow({ children }: { children: ReactNode }) {
 }
 
 /** 웹의 .pill — 투명 배경 텍스트 버튼 */
-export function Pill({ label, onPress }: { label: string; onPress: () => void }) {
+/** tone: 없으면 글자만, soft는 연보라 바탕, solid는 진보라 바탕 — 상태가 바뀌는 버튼을 눈에 띄게 */
+export function Pill({
+  label,
+  onPress,
+  tone,
+  accessibilityLabel,
+}: {
+  label: string
+  onPress: () => void
+  tone?: 'soft' | 'solid'
+  accessibilityLabel?: string
+}) {
   const c = useColors()
+  const bg = tone === 'solid' ? c.accentStrong : tone === 'soft' ? c.accentSoft : 'transparent'
+  const fg = tone === 'solid' ? c.accentFg : tone === 'soft' ? c.accentStrong : c.muted
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
       style={({ pressed }) => ({
         borderRadius: radius.pill,
         paddingVertical: 7,
         paddingHorizontal: 14,
-        backgroundColor: pressed ? c.shell : 'transparent',
+        backgroundColor: pressed && !tone ? c.shell : bg,
+        opacity: pressed && tone ? 0.85 : 1,
       })}
     >
-      <Text style={{ fontSize: 13, fontWeight: '500', color: c.muted }}>{label}</Text>
+      <Text style={{ fontSize: 13, fontWeight: tone ? '600' : '500', color: fg }}>{label}</Text>
     </Pressable>
   )
 }

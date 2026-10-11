@@ -126,10 +126,13 @@ export default function CalendarScreen() {
       >
         <GroupSwitcher groups={groups} selectedId={selectedId} onSelect={select} onCreate={newGroup} />
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          {/* 달력/일정 목록 전환 — 지금 화면이 아니라 '누르면 갈 화면' 이름을 보여준다 */}
+          {/* 달력/일정 목록 전환 — 지금 화면이 아니라 '누르면 갈 화면' 이름을 보여준다.
+              목록 화면에선 진보라로 채워 '지금 목록 보는 중'이 한눈에 보이게 한다 */}
           <Pill
             label={tab === 'calendar' ? '일정 목록' : '달력'}
+            tone={tab === 'calendar' ? 'soft' : 'solid'}
             onPress={() => setTab(tab === 'calendar' ? 'list' : 'calendar')}
+            accessibilityLabel={tab === 'calendar' ? '일정 목록으로 보기' : '달력으로 돌아가기'}
           />
           <Pill label="그룹" onPress={() => router.push('/groups')} />
           <Pill label="로그아웃" onPress={() => void signOut()} />
