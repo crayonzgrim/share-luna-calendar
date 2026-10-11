@@ -260,3 +260,36 @@ describe('occurrencesInMonth — 음력 일회성', () => {
     expect(occurrencesInMonth(e, 2027, 4)).toEqual([])
   })
 })
+
+describe('n마다 반복', () => {
+  it('3일마다 — 기준일부터 앞으로만', () => {
+    const e = entry({ repeat: 'daily', repeat_interval: 3, event_date: '2026-08-30' })
+    expect(occurrencesInMonth(e, 2026, 8).map((d) => d.getDate())).toEqual([30])
+    expect(occurrencesInMonth(e, 2026, 9).map((d) => d.getDate())).toEqual([2, 5, 8, 11, 14, 17, 20, 23, 26, 29])
+    expect(occurrencesInMonth(e, 2026, 7)).toEqual([])
+  })
+  it('2주마다 — 같은 요일', () => {
+    const e = entry({ repeat: 'weekly', repeat_interval: 2, event_date: '2026-08-03' })
+    expect(occurrencesInMonth(e, 2026, 8).map((d) => d.getDate())).toEqual([3, 17, 31])
+    expect(occurrencesInMonth(e, 2026, 9).map((d) => d.getDate())).toEqual([14, 28])
+  })
+  it('매주(n 없음)는 1주마다', () => {
+    const e = entry({ repeat: 'weekly', event_date: '2026-08-03' })
+    expect(occurrencesInMonth(e, 2026, 8)).toHaveLength(5)
+  })
+  it('3개월마다 — 기준 달에서 3칸씩, 앞쪽도 대칭', () => {
+    const e = entry({ repeat: 'monthly', repeat_interval: 3, event_date: '2026-08-15' })
+    expect(occurrencesInMonth(e, 2026, 11)).toHaveLength(1)
+    expect(occurrencesInMonth(e, 2026, 9)).toEqual([])
+    expect(occurrencesInMonth(e, 2026, 5)).toHaveLength(1)
+  })
+  it('2년마다 — 짝이 맞는 해에만', () => {
+    const e = entry({ repeat: 'yearly', repeat_interval: 2, event_date: '2026-08-15' })
+    expect(occurrencesInMonth(e, 2028, 8)).toHaveLength(1)
+    expect(occurrencesInMonth(e, 2027, 8)).toEqual([])
+  })
+  it('n년마다도 다음 발생을 찾는다', () => {
+    const e = entry({ repeat: 'yearly', repeat_interval: 4, event_date: '2026-08-15' })
+    expect(nextOccurrence(e, new Date(2026, 8, 1))).toEqual(new Date(2030, 7, 15))
+  })
+})
