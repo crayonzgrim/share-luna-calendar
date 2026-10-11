@@ -102,11 +102,23 @@ export async function deleteEntry(id: string): Promise<void> {
 const IMAGE_BUCKET = 'entry-images'
 export const MAX_ENTRY_IMAGES = 5
 
-/** 호출 쪽에서 JPEG로 줄여서 넘긴다. 돌려받은 경로를 일정의 image_paths에 넣는다. */
+/**
+ * 원본 옆에 두는 작은 썸네일의 경로. 같은 폴더라 Storage 권한(그룹/올린 사람)과 계정 삭제가 그대로 통한다.
+ * 썸네일 없이 올라간 예전 사진도 있다 — 보여줄 땐 썸네일이 없으면 원본으로 물러난다.
+ */
+export function thumbPath(path: string): string {
+  return path.replace(/\.jpg$/, '.thumb.jpg')
+}
+
+/**
+ * 호출 쪽에서 JPEG로 줄여서 넘긴다. 돌려받은 경로를 일정의 image_paths에 넣는다.
+ * thumb을 주면 thumbPath(경로)에 함께 올린다 (목록 칸에서 원본 대신 받아 빨리 뜨게).
+ */
 export async function uploadEntryImage(
   groupId: string,
   userId: string,
   body: ArrayBuffer | Blob,
+  thumb?: ArrayBuffer | Blob,
 ): Promise<string> {
   // crypto.randomUUID는 RN(Hermes)에 없을 수 있다. 같은 사람이 같은 밀리초에 겹칠 일은 없다.
   const name = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
@@ -115,6 +127,10 @@ export async function uploadEntryImage(
     .from(IMAGE_BUCKET)
     .upload(path, body, { contentType: 'image/jpeg' })
   if (error) throw error
+  if (thumb) {
+    // 썸네일이 실패해도 원본은 올라갔다 — 보여줄 때 원본으로 물러나니 일정 저장을 막지 않는다
+    await supabase.storage.from(IMAGE_BUCKET).upload(thumbPath(path), thumb, { contentType: 'image/jpeg' })
+  }
   return path
 }
 
@@ -132,6 +148,7 @@ export async function signImageUrls(paths: string[]): Promise<Record<string, str
 
 export async function removeEntryImages(paths: string[]): Promise<void> {
   if (paths.length === 0) return
-  const { error } = await supabase.storage.from(IMAGE_BUCKET).remove(paths)
+  // 썸네일도 같이 지운다. 썸네일이 없는 예전 사진은 없는 경로라 그냥 넘어간다
+  const { error } = await supabase.storage.from(IMAGE_BUCKET).remove([...paths, ...paths.map(thumbPath)])
   if (error) throw error
 }
