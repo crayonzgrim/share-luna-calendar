@@ -229,6 +229,21 @@ export default function DayPanel({
             maxLength={2000}
           />
 
+          {imageCount < MAX_ENTRY_IMAGES && (
+            <label className="ghost-btn photo-btn">
+              + 사진 추가 ({imageCount}/{MAX_ENTRY_IMAGES})
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                hidden
+                onChange={(ev) => {
+                  void pickImages(ev.target.files)
+                  ev.target.value = '' // 같은 파일을 다시 골라도 onChange가 오게
+                }}
+              />
+            </label>
+          )}
           {imageCount > 0 && (
             <div className="thumbs">
               {[...keptPaths.map((p) => urls[p]), ...newImages.map((n) => n.url)].map((url, i) => (
@@ -245,21 +260,6 @@ export default function DayPanel({
                 </span>
               ))}
             </div>
-          )}
-          {imageCount < MAX_ENTRY_IMAGES && (
-            <label className="ghost-btn photo-btn">
-              + 사진 ({imageCount}/{MAX_ENTRY_IMAGES})
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                hidden
-                onChange={(ev) => {
-                  void pickImages(ev.target.files)
-                  ev.target.value = '' // 같은 파일을 다시 골라도 onChange가 오게
-                }}
-              />
-            </label>
           )}
 
           <div className="icon-picker" role="group" aria-label="일정 종류">
