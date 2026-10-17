@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import {
   ActivityIndicator,
+  Alert,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,7 +15,7 @@ import * as Clipboard from 'expo-clipboard'
 import { router } from 'expo-router'
 import { fetchGroupMembers, joinGroupByCode, updateGroupName } from '../../src/lib/api'
 import { errorMessage } from '../../src/lib/errors'
-import type { Profile } from '../../src/lib/types'
+import type { Group, Profile } from '../../src/lib/types'
 import { Badge, ErrorText, NavBtn, SectionLabel, Shell } from '../components/ui'
 import { deleteAccount, useAuth } from '../lib/useAuth'
 import DeleteAccountSheet from '../components/DeleteAccountSheet'
@@ -30,6 +32,21 @@ const SITE_URL = process.env.EXPO_PUBLIC_SITE_URL?.replace(/\/$/, '')
 
 function inviteText(code: string): string {
   return SITE_URL ? `${SITE_URL}/join/${code}` : code
+}
+
+/**
+ * 기기의 메일 앱을 열어 초대 메일을 써 둔다. 받는 사람은 메일 앱에서 고른다 (주소록 자동완성이 거기 있다).
+ * ponytail: 서버가 직접 보내는 메일은 발송 서비스(Resend 등)와 도메인이 필요해 미뤘다
+ */
+function emailInvite(g: Group) {
+  const how = SITE_URL
+    ? `아래 링크를 누르면 들어올 수 있어요.\n${inviteText(g.invite_code)}`
+    : `앱에서 카카오로 로그인한 뒤 [그룹] → [초대 코드로 들어가기]에 아래 코드를 붙여넣어 주세요.\n\n초대 코드: ${g.invite_code}`
+  const subject = `[우리 달력] '${g.name}' 달력에 초대해요`
+  const body = `'우리 달력' 앱에서 '${g.name}' 달력을 같이 봐요.\n\n${how}`
+  Linking.openURL(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`).catch(() =>
+    Alert.alert('메일 앱을 열 수 없어요', '초대 코드를 복사해서 보내 주세요.'),
+  )
 }
 
 /** 링크째 붙여넣어도 받아준다 — `.../join/abc123` → `abc123` */
@@ -294,6 +311,11 @@ export default function GroupsScreen() {
                           on={done}
                           onPress={() => void copyInvite(g.invite_code)}
                           accessibilityLabel={`${g.name} ${SITE_URL ? '초대 링크' : '초대 코드'} 복사`}
+                        />
+                        <CardBtn
+                          label="이메일로 초대"
+                          onPress={() => emailInvite(g)}
+                          accessibilityLabel={`${g.name} 이메일로 초대`}
                         />
                         {g.created_by === myId && (
                           <CardBtn
