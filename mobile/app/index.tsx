@@ -13,7 +13,7 @@ import { CenterMsg, ErrorText, Eyebrow, Loading, NavBtn, Pill } from '../compone
 import { isSameDay, shiftMonth } from '../../src/lib/calendar'
 import { createGroup } from '../../src/lib/api'
 import { useEntries } from '../../src/lib/useEntries'
-import { signOut, useAuth } from '../lib/useAuth'
+import { useAuth } from '../lib/useAuth'
 import { useGroups } from '../lib/useGroups'
 import { DEMO, DEMO_USER_ID, useDemoEntries, useDemoGroups } from '../lib/demo'
 import { lift, radius, useColors } from '../lib/theme'
@@ -135,7 +135,8 @@ export default function CalendarScreen() {
             accessibilityLabel={tab === 'calendar' ? '일정 목록으로 보기' : '달력으로 돌아가기'}
           />
           <Pill label="그룹" onPress={() => router.push('/groups')} />
-          <Pill label="로그아웃" onPress={() => void signOut()} />
+          {/* 로그아웃은 설정 안으로 — 자주 누를 일이 없고 막대가 좁다 */}
+          <Pill label="설정" onPress={() => router.push('/settings')} />
         </View>
       </View>
 
