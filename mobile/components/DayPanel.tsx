@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Alert, Platform, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker'
 import * as ImagePicker from 'expo-image-picker'
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator'
-import { MAX_ENTRY_IMAGES, removeEntryImages, thumbPath, uploadEntryImage } from '../../src/lib/api'
+import { MAX_ENTRY_IMAGES, fetchGroupMembers, removeEntryImages, thumbPath, uploadEntryImage } from '../../src/lib/api'
 import type { EntryPatch, NewEntry } from '../../src/lib/api'
 import { isSameDay } from '../../src/lib/calendar'
 import { errorMessage } from '../../src/lib/errors'
@@ -11,11 +11,13 @@ import { ENTRY_ICONS, findIcon } from '../../src/lib/icons'
 import { lunarToSolarClamped, solarToLunar } from '../../src/lib/lunar'
 import { occurrencesInMonth, toISODate } from '../../src/lib/recurrence'
 import type { DateType, RepeatRule } from '../../src/lib/recurrence'
-import type { EntryWithAuthor } from '../../src/lib/types'
+import type { EntryWithAuthor, Profile } from '../../src/lib/types'
 import { useImageUrls } from '../../src/lib/useImageUrls'
 import { eventColor, radius, useColors } from '../lib/theme'
 import { byTime, formatTime } from '../lib/time'
 import { REPEAT_UNITS, repeatLabel } from '../lib/repeat'
+import { notifyMentions } from '../lib/push'
+import { completeMention, mentionedIds, mentionQuery } from '../lib/mention'
 import { Avatar, Badge, ErrorText } from './ui'
 import Segmented from './Segmented'
 import Thumbs from './Thumbs'
@@ -61,6 +63,27 @@ export default function DayPanel({
   const [newUris, setNewUris] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // @로 부를 수 있는 사람 — 이 그룹의 나 말고 다른 멤버
+  const [members, setMembers] = useState<Profile[]>([])
+  // 지금 글을 쓰는 칸. '@'를 친 칸 바로 아래에 이름을 띄운다
+  const [focus, setFocus] = useState<'title' | 'memo' | null>(null)
+
+  useEffect(() => {
+    if (!groupId) return
+    fetchGroupMembers(groupId)
+      .then((list) => setMembers(list.filter((m) => m.id !== userId)))
+      .catch(() => setMembers([]))
+  }, [groupId, userId])
+
+  const focusText = focus === 'title' ? title : focus === 'memo' ? memo : ''
+  const query = mentionQuery(focusText)
+  const suggestions = query === null ? [] : members.filter((m) => m.name.includes(query))
+
+  function pickMention(name: string) {
+    const done = (t: string) => completeMention(t, name)
+    if (focus === 'title') setTitle(done)
+    else setMemo(done)
+  }
 
   const lunar = solarToLunar(date)
   const dayLunar = solarToLunar(day)
@@ -216,6 +239,11 @@ export default function DayPanel({
           image_paths,
         })
       }
+      // 글에 '@이름'이 남아 있는 사람에게 알린다. 고칠 때는 새로 부른 사람만
+      const before = editingId ? entries.find((e) => e.id === editingId) : undefined
+      const old = new Set(mentionedIds(members, `${before?.title ?? ''} ${before?.memo ?? ''}`))
+      const called = mentionedIds(members, `${title} ${memo}`).filter((id) => !old.has(id))
+      void notifyMentions(groupId, called, title.trim(), toISODate(day)).catch(() => {})
       reset()
       if (moved) onMoved(day)
     } catch (err) {
@@ -504,17 +532,25 @@ export default function DayPanel({
             placeholder="무엇을 할 예정인가요?"
             placeholderTextColor={c.faint}
             maxLength={200}
+            onFocus={() => setFocus('title')}
             style={field}
           />
+          {focus === 'title' && suggestions.length > 0 && (
+            <MentionList people={suggestions} onPick={pickMention} />
+          )}
           <TextInput
             value={memo}
             onChangeText={setMemo}
-            placeholder="메모 (선택)"
+            placeholder="메모 (선택) · @로 가족 부르기"
             placeholderTextColor={c.faint}
             multiline
             maxLength={2000}
+            onFocus={() => setFocus('memo')}
             style={[field, { minHeight: 62, textAlignVertical: 'top' }]}
           />
+          {focus === 'memo' && suggestions.length > 0 && (
+            <MentionList people={suggestions} onPick={pickMention} />
+          )}
 
           {/* 사진 칸 끝의 + 칸으로 추가한다. 5장이 차면 + 칸이 사라진다 */}
           <View style={{ paddingTop: 6 }}>
@@ -655,6 +691,34 @@ async function makeThumb(uri: string): Promise<string> {
   const img = await ImageManipulator.manipulate(uri).resize({ width: THUMB_WIDTH }).renderAsync()
   const out = await img.saveAsync({ compress: 0.7, format: SaveFormat.JPEG })
   return out.uri
+}
+
+function MentionList({ people, onPick }: { people: Profile[]; onPick: (name: string) => void }) {
+  const c = useColors()
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+      {people.map((m) => (
+        <Pressable
+          key={m.id}
+          onPress={() => onPick(m.name)}
+          accessibilityRole="button"
+          accessibilityLabel={`${m.name} 부르기`}
+          style={({ pressed }) => ({
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
+            minHeight: 36,
+            paddingHorizontal: 12,
+            borderRadius: radius.pill,
+            backgroundColor: pressed ? c.accentSoft : c.shell,
+          })}
+        >
+          <Avatar name={m.name} url={m.avatar_url} />
+          <Text style={{ fontSize: 13, fontWeight: '500', color: c.fg }}>@{m.name}</Text>
+        </Pressable>
+      ))}
+    </View>
+  )
 }
 
 function nextYearLabel(month: number, day: number, year: number): string {

@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Appearance } from 'react-native'
 import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
@@ -7,6 +8,7 @@ import { Loading } from '../components/ui'
 import { useAuth } from '../lib/useAuth'
 import { useColors } from '../lib/theme'
 import { DEMO } from '../lib/demo'
+import { syncMentionPush } from '../lib/push'
 
 // 라이트 고정 — 날짜 선택 창·알림창 같은 네이티브 창용. 앱 화면 색은 useColors가 따로 고정한다.
 // 토글을 만들 때 둘을 같은 설정값으로 함께 바꿀 것.
@@ -15,6 +17,13 @@ Appearance.setColorScheme('light')
 export default function RootLayout() {
   const c = useColors()
   const { user, loading } = useAuth()
+
+  // 처음 들어오면 알림 권한을 묻는다. 설정에서 끈 사람은 묻지 않는다.
+  // 실패(에뮬레이터, EAS projectId 없음 등)해도 앱은 그대로 쓴다 — 알림만 안 올 뿐이다
+  const uid = user?.id
+  useEffect(() => {
+    if (uid) void syncMentionPush(uid).catch(() => {})
+  }, [uid])
 
   return (
     <SafeAreaProvider>

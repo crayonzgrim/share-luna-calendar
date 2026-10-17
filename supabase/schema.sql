@@ -381,3 +381,70 @@ create policy "uploader deletes entry images" on storage.objects
     bucket_id = 'entry-images'
     and (storage.foldername(name))[2] = auth.uid()::text
   );
+
+
+-- ---------- 푸시 알림: 일정에서 @로 부른 사람 ----------
+-- 자세한 이유는 migrations/010-mention-push.sql.
+
+create extension if not exists pg_net with schema extensions;
+
+-- ponytail: 한 사람당 기기 하나 — 마지막에 켠 기기로 간다. 여러 기기가 필요하면 (user_id, token)을 키로
+create table if not exists public.push_tokens (
+  user_id    uuid primary key references public.profiles(id) on delete cascade,
+  token      text not null,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.push_tokens enable row level security;
+
+drop policy if exists "own push token" on public.push_tokens;
+create policy "own push token" on public.push_tokens
+  for all to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+grant select, insert, update, delete on public.push_tokens to authenticated;
+
+
+create or replace function public.notify_mentions(gid uuid, users uuid[], title text, day date)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  msgs jsonb;
+begin
+  if not public.is_group_member(gid) then
+    raise exception '그룹 멤버만 알릴 수 있어요';
+  end if;
+
+  select jsonb_agg(jsonb_build_object(
+    'to', t.token,
+    -- 예: "2026. 10. 17 엄마님이 일정에 태그됐어요" / 본문은 일정 제목
+    'title', to_char(day, 'YYYY. FMMM. FMDD') || ' ' || p.name || '님이 일정에 태그됐어요',
+    'body', title,
+    'sound', 'default',
+    'channelId', 'default',
+    'data', jsonb_build_object('date', day)
+  ))
+  into msgs
+  from public.push_tokens t
+  join public.group_members m on m.user_id = t.user_id and m.group_id = gid
+  join public.profiles p on p.id = t.user_id
+  where t.user_id = any(users) and t.user_id <> auth.uid();
+
+  if msgs is null then
+    return;
+  end if;
+
+  -- 비동기다. 응답(잘못된 토큰 등)은 net._http_response에 쌓이고 여기선 보지 않는다
+  perform net.http_post(
+    url := 'https://exp.host/--/api/v2/push/send',
+    body := msgs,
+    headers := '{"Content-Type": "application/json"}'::jsonb
+  );
+end;
+$$;
+
+revoke all on function public.notify_mentions(uuid, uuid[], text, date) from public, anon;
+grant execute on function public.notify_mentions(uuid, uuid[], text, date) to authenticated;
