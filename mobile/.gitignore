@@ -40,3 +40,6 @@ yarn-error.*
 /ios
 /android
 .env.local
+
+# FCM V1 서비스 계정 키 — 비밀값. google-services.json은 공개 식별자라 커밋해도 된다 (Expo 문서)
+*-firebase-adminsdk-*.json

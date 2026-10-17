@@ -18,6 +18,7 @@
         "backgroundColor": "#FDFBF7",
         "foregroundImage": "./assets/android-icon-foreground.png"
       },
+      "googleServicesFile": "./google-services.json",
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -49,6 +50,13 @@
       ],
       "./plugins/withLightTheme",
       "expo-image"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "f6e2e42a-55ba-4269-bf3f-d92fd3736ca4"
+      }
+    },
+    "owner": "crayonzgrim"
   }
 }
