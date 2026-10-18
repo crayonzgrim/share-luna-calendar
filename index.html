@@ -2,9 +2,16 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" href="/icon-192.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>우리 달력</title>
+    <!-- 홈 화면에 추가하면 앱처럼 열린다 (iOS는 앱이 없어서 이걸로 쓴다).
+         ponytail: 서비스 워커 없음 — 설치에는 필요 없다. 오프라인·웹 푸시가 필요해지면 추가 -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="우리 달력" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fdfbf7" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#12100e" />
   </head>
   <body>
     <div id="root"></div>
